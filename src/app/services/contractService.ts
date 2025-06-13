@@ -84,8 +84,8 @@ export class ContractService {
           account.address,
           params.serviceName,
           pricePerHourWei,
-          BigInt(params.totalHours),
-          BigInt(params.validityDays)
+          BigInt(Math.round(params.totalHours)),
+          BigInt(Math.round(params.validityDays))
         ]
       });
 

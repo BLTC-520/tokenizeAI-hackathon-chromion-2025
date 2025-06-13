@@ -143,6 +143,8 @@ export default function Questionnaire({ onComplete }: QuestionnaireProps) {
   };
 
   const handleNext = () => {
+    if (!isAnswered()) return; // Don't proceed if question isn't answered
+    
     const nextStep = currentStep + 1;
     
     // Save progress
@@ -159,6 +161,14 @@ export default function Questionnaire({ onComplete }: QuestionnaireProps) {
       console.log('📝 Questionnaire completed, clearing progress');
       progressHook.resetProgress();
       onComplete(answers as UserAnswers);
+    }
+  };
+
+  // Handle keyboard events
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && isAnswered()) {
+      e.preventDefault();
+      handleNext();
     }
   };
 
@@ -186,34 +196,34 @@ export default function Questionnaire({ onComplete }: QuestionnaireProps) {
   // Show loading until restored
   if (!isRestored) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mb-4"></div>
-          <p className="text-white text-lg">Restoring your progress...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-black mb-4"></div>
+          <p className="text-black text-lg">Restoring your progress...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         {/* Progress Bar */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-white/80 text-sm">
+            <span className="text-gray-600 text-sm">
               Question {currentStep + 1} of {questions.length}
               {userAnswersHook.userAnswers && (
-                <span className="ml-2 text-green-400 text-xs">
+                <span className="ml-2 text-black text-xs">
                   ✅ Progress restored
                 </span>
               )}
             </span>
-            <span className="text-white/80 text-sm">{Math.round(progress)}% complete</span>
+            <span className="text-gray-600 text-sm">{Math.round(progress)}% complete</span>
           </div>
-          <div className="w-full bg-white/20 rounded-full h-2">
+          <div className="w-full bg-gray-200 rounded-full h-2">
             <motion.div
-              className="bg-white h-2 rounded-full"
+              className="bg-black h-2 rounded-full"
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.5, ease: 'easeInOut' }}
@@ -229,14 +239,21 @@ export default function Questionnaire({ onComplete }: QuestionnaireProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -50 }}
             transition={{ duration: 0.3 }}
-            className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20 shadow-2xl"
+            className="bg-gray-50 border border-gray-200 rounded-lg p-8"
+            onKeyDown={handleKeyDown}
+            tabIndex={0}
           >
             <div className="mb-8">
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+              <h2 className="text-3xl md:text-4xl font-bold text-black mb-4">
                 {currentQuestion.title}
               </h2>
-              <p className="text-white/80 text-lg">
+              <p className="text-gray-600 text-lg mb-2">
                 {currentQuestion.subtitle}
+              </p>
+              <p className="text-gray-400 text-sm">
+                {currentQuestion.type === 'text' && "Press Enter to continue"}
+                {currentQuestion.type === 'textarea' && "Press Ctrl/Cmd + Enter to continue"}
+                {(currentQuestion.type === 'select' || currentQuestion.type === 'multiselect') && "Use keyboard arrows and Enter/Space to select"}
               </p>
             </div>
 
@@ -247,7 +264,9 @@ export default function Questionnaire({ onComplete }: QuestionnaireProps) {
                   placeholder={currentQuestion.placeholder}
                   value={answers[currentQuestion.id as keyof UserAnswers] as string || ''}
                   onChange={(e) => handleAnswer(currentQuestion.id, e.target.value)}
-                  className="w-full px-6 py-4 bg-white/10 border border-white/30 rounded-2xl text-white placeholder-white/60 text-lg focus:outline-none focus:ring-2 focus:ring-white/50 transition-all"
+                  onKeyDown={handleKeyDown}
+                  className="w-full px-6 py-4 bg-white border border-gray-300 rounded-lg text-black placeholder-gray-500 text-lg focus:outline-none focus:ring-2 focus:ring-black transition-all"
+                  autoFocus
                 />
               )}
 
@@ -256,8 +275,16 @@ export default function Questionnaire({ onComplete }: QuestionnaireProps) {
                   placeholder={currentQuestion.placeholder}
                   value={answers[currentQuestion.id as keyof UserAnswers] as string || ''}
                   onChange={(e) => handleAnswer(currentQuestion.id, e.target.value)}
+                  onKeyDown={(e) => {
+                    // For textarea, only advance on Ctrl/Cmd + Enter to allow line breaks
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && isAnswered()) {
+                      e.preventDefault();
+                      handleNext();
+                    }
+                  }}
                   rows={4}
-                  className="w-full px-6 py-4 bg-white/10 border border-white/30 rounded-2xl text-white placeholder-white/60 text-lg focus:outline-none focus:ring-2 focus:ring-white/50 transition-all resize-none"
+                  className="w-full px-6 py-4 bg-white border border-gray-300 rounded-lg text-black placeholder-gray-500 text-lg focus:outline-none focus:ring-2 focus:ring-black transition-all resize-none"
+                  autoFocus
                 />
               )}
 
@@ -269,22 +296,32 @@ export default function Questionnaire({ onComplete }: QuestionnaireProps) {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => handleAnswer(currentQuestion.id, option.value)}
-                      className={`w-full p-4 rounded-2xl border-2 transition-all text-left ${
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleAnswer(currentQuestion.id, option.value);
+                          // Auto-advance after selection
+                          setTimeout(() => {
+                            if (isAnswered()) handleNext();
+                          }, 100);
+                        }
+                      }}
+                      className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                         answers[currentQuestion.id as keyof UserAnswers] === option.value
-                          ? 'bg-white/20 border-white/60 text-white'
-                          : 'bg-white/5 border-white/20 text-white/80 hover:bg-white/10 hover:border-white/40'
+                          ? 'bg-gray-100 border-black text-black'
+                          : 'bg-white border-gray-300 text-black hover:bg-gray-50 hover:border-gray-400'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="font-semibold text-lg">{option.label}</div>
                           {option.description && (
-                            <div className="text-sm opacity-70">{option.description}</div>
+                            <div className="text-sm text-gray-600">{option.description}</div>
                           )}
                         </div>
                         {answers[currentQuestion.id as keyof UserAnswers] === option.value && (
-                          <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center">
-                            <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                          <div className="w-6 h-6 rounded-full bg-black flex items-center justify-center">
+                            <div className="w-3 h-3 rounded-full bg-white"></div>
                           </div>
                         )}
                       </div>
@@ -311,24 +348,34 @@ export default function Questionnaire({ onComplete }: QuestionnaireProps) {
                             : [...currentAnswers, option.value];
                           handleAnswer(currentQuestion.id, newAnswers);
                         }}
-                        className={`w-full p-4 rounded-2xl border-2 transition-all text-left ${
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            const currentAnswers = selectedSkills;
+                            const newAnswers = isSelected
+                              ? currentAnswers.filter(skill => skill !== option.value)
+                              : [...currentAnswers, option.value];
+                            handleAnswer(currentQuestion.id, newAnswers);
+                          }
+                        }}
+                        className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                           isSelected
-                            ? 'bg-white/20 border-white/60 text-white'
-                            : 'bg-white/5 border-white/20 text-white/80 hover:bg-white/10 hover:border-white/40'
+                            ? 'bg-gray-100 border-black text-black'
+                            : 'bg-white border-gray-300 text-black hover:bg-gray-50 hover:border-gray-400'
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="font-semibold text-lg">{option.label}</div>
                             {option.category && (
-                              <div className="text-sm opacity-70">{option.category}</div>
+                              <div className="text-sm text-gray-600">{option.category}</div>
                             )}
                           </div>
                           <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                            isSelected ? 'bg-white border-white' : 'border-white/40'
+                            isSelected ? 'bg-black border-black' : 'border-gray-400'
                           }`}>
                             {isSelected && (
-                              <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                              <div className="w-3 h-3 rounded-full bg-white"></div>
                             )}
                           </div>
                         </div>
@@ -345,7 +392,7 @@ export default function Questionnaire({ onComplete }: QuestionnaireProps) {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleBack}
-                  className="px-8 py-4 bg-white/10 border border-white/30 text-white rounded-2xl font-semibold hover:bg-white/20 transition-all"
+                  className="px-8 py-4 bg-gray-100 border border-gray-300 text-black rounded-lg font-semibold hover:bg-gray-200 transition-all"
                 >
                   Back
                 </motion.button>
@@ -356,10 +403,10 @@ export default function Questionnaire({ onComplete }: QuestionnaireProps) {
                 whileTap={{ scale: 0.95 }}
                 onClick={handleNext}
                 disabled={!isAnswered()}
-                className={`flex-1 px-8 py-4 rounded-2xl font-semibold transition-all ${
+                className={`flex-1 px-8 py-4 rounded-lg font-semibold transition-all ${
                   isAnswered()
-                    ? 'bg-white text-purple-600 hover:bg-white/90'
-                    : 'bg-white/20 text-white/60 cursor-not-allowed'
+                    ? 'bg-black text-white hover:bg-gray-800'
+                    : 'bg-gray-200 text-gray-500 cursor-not-allowed border border-gray-300'
                 }`}
               >
                 {currentStep === questions.length - 1 ? 'Create My Portfolio 🚀' : 'Next'}

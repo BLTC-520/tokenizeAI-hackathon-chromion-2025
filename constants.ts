@@ -12,7 +12,19 @@ export const ETHEREUM_SEPOLIA_CHAIN_ID = 11155111;
 
 export const TOKENIZE_AI_CONTRACT_ADDRESS = "0xcEC74F686A7EEC2d818a1646996F3eDc9da890EA"; // this is avalanche fuji address
 
-export const erc1155Abi = [
+// Time Token Contract mapping by chain ID (for TransactionProgress component)
+export const TIME_TOKEN_CONTRACT_ADDRESS = {
+  [ETHEREUM_SEPOLIA_CHAIN_ID]: CONTRACT_ADDRESSES.ETHEREUM_SEPOLIA,
+  [BASE_SEPOLIA_CHAIN_ID]: CONTRACT_ADDRESSES.BASE_SEPOLIA,
+  [AVALANCHE_FUJI_CHAIN_ID]: CONTRACT_ADDRESSES.AVALANCHE_FUJI,
+  // Default fallback
+  43113: CONTRACT_ADDRESSES.AVALANCHE_FUJI,
+  84532: CONTRACT_ADDRESSES.BASE_SEPOLIA,
+  11155111: CONTRACT_ADDRESSES.ETHEREUM_SEPOLIA
+} as const;
+
+// Export ABI with the name expected by TransactionProgress component
+export const TIME_TOKEN_ABI = [
 	{
 		"inputs": [],
 		"stateMutability": "nonpayable",
@@ -935,4 +947,7 @@ export const erc1155Abi = [
 		"stateMutability": "view",
 		"type": "function"
 	}
-]
+];
+
+// Legacy export for backward compatibility
+export const erc1155Abi = TIME_TOKEN_ABI;
