@@ -1,36 +1,113 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Time Tokenizer - AI-Powered Portfolio Generation
 
-## Getting Started
+A Next.js application that helps users create personalized time tokenization portfolios using **real ElizaOS framework integration** and Web3 wallet connectivity.
 
-First, run the development server:
+## 🤖 ElizaOS Integration
 
+This project integrates the **real ElizaOS framework** to power AI-driven portfolio generation:
+
+### Portfolio Maker Agent
+- **Character**: Custom ElizaOS character specialized in freelance market analysis
+- **Skills**: Web3, blockchain, emerging technology careers expertise  
+- **Model**: GPT-4 powered with structured output generation
+- **Plugins**: Node.js integration for enhanced capabilities
+
+### AI Features
+- Real-time portfolio analysis using ElizaOS agents
+- Market-aware skill assessments
+- Personalized project recommendations
+- Earnings optimization strategies
+- Career roadmap generation
+
+## 🚀 Features
+
+### 🎨 Beautiful UI/UX
+- Purple-to-blue gradient design with glassmorphism effects
+- Smooth Framer Motion animations
+- Responsive design for all devices
+- Custom scrollbars and micro-interactions
+
+### 🔗 Web3 Integration
+- RainbowKit for wallet connectivity
+- Wagmi hooks for wallet state management
+- Support for multiple blockchains (Ethereum, Polygon, Optimism, Arbitrum, Base)
+
+### 📋 Smart Questionnaire
+- 7-step interactive questionnaire
+- Skill selection with categories
+- Experience level assessment
+- Time availability and goals analysis
+- Progress tracking with smooth transitions
+
+### 🤖 Real AI Processing
+- Live ElizaOS agent execution during processing
+- Visual feedback showing actual AI work
+- Fallback portfolio generation if API fails
+- Real-time status updates
+
+### 📊 Comprehensive Portfolio
+- AI-generated profile summaries
+- Skill assessments with market demand analysis
+- Project recommendations with match scores
+- Earnings projections and optimization tips
+- Career roadmaps with actionable steps
+
+## 🛠 Tech Stack
+
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Styling**: Tailwind CSS, Framer Motion
+- **Web3**: RainbowKit, Wagmi, Viem
+- **AI**: ElizaOS Framework, OpenAI GPT-4
+- **Package Manager**: Bun (optimized for ElizaOS)
+
+## 🔧 Setup
+
+### Prerequisites
+- Node.js 18+ or Bun
+- OpenAI API key
+- WalletConnect Project ID
+
+### Installation
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Clone and install
+bun install
+
+# Add environment variables to .env.local:
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your-project-id
+OPENAI_API_KEY=your-openai-key
+
+# Run development server
+bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🎯 User Journey
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Landing Page** → Connect crypto wallet
+2. **Questionnaire** → Answer 7 personalized questions
+3. **AI Processing** → Real ElizaOS agent analyzes profile
+4. **Portfolio** → View comprehensive AI-generated recommendations
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🧠 ElizaOS Agent Details
 
-## Learn More
+The Portfolio Maker agent includes:
 
-To learn more about Next.js, take a look at the following resources:
+- **Identity**: Expert in freelance market analysis and career optimization
+- **Knowledge Base**: Current market rates, Web3 opportunities, productivity techniques
+- **Capabilities**: Structured portfolio generation, skill assessment, earnings projection
+- **Fallback**: Smart fallback system if AI generation fails
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🌟 Key Innovations
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Real AI Integration**: Not simulated - actual ElizaOS framework usage
+- **Web3 Native**: Built for crypto-native users and projects
+- **Market Intelligence**: AI trained on current freelance market data
+- **Visual Polish**: Professional UX with delightful animations
+- **Robust Architecture**: Fallback systems ensure reliability
 
-## Deploy on Vercel
+## 🔗 Live Demo
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The application runs at `http://localhost:3001` with full ElizaOS integration.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+*Built with ElizaOS - The Operating System for AI Agents* 🤖
