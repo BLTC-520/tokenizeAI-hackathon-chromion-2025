@@ -3,6 +3,8 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { PortfolioData } from '../services/elizaAgent';
+import { marketAnalyzeAgent, MarketAnalysisResult } from '../services/marketAnalyzeAgent';
+import { GETSKILLPRICE_CONTRACT_ADDRESS } from '../../../constants';
 
 interface UserAnswers {
   name: string;
@@ -50,6 +52,8 @@ const projectIcons: { [key: string]: string } = {
 
 export default function Portfolio({ userAnswers, portfolioData, onProceedToTokenization }: PortfolioProps) {
   const [activeTab, setActiveTab] = useState('overview');
+  const [marketAnalysis, setMarketAnalysis] = useState<MarketAnalysisResult | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const calculateWeeklyEarnings = () => {
     const timeMap: { [key: string]: number } = {
@@ -133,10 +137,36 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
     timeOptimization: portfolioData.earningsProjection?.optimizationTips || generateTimeOptimization(),
   };
 
+  // Market Analysis function
+  const handleMarketAnalysis = async () => {
+    setIsAnalyzing(true);
+    try {
+      console.log('🔍 Starting market analysis...');
+      
+      // Fetch Chainlink data from GetSkillPrice.sol contract
+      const chainlinkData = await marketAnalyzeAgent.fetchChainlinkData(
+        GETSKILLPRICE_CONTRACT_ADDRESS, 
+        userAnswers.skills
+      );
+      
+      // Perform market analysis
+      const analysis = await marketAnalyzeAgent.analyzeMarket(userAnswers.skills, chainlinkData);
+      setMarketAnalysis(analysis);
+      setActiveTab('market');
+      
+      console.log('✅ Market analysis completed');
+    } catch (error) {
+      console.error('❌ Market analysis failed:', error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const tabs = [
     { id: 'overview', label: '📊 Overview', icon: '📊' },
     { id: 'projects', label: '🚀 Projects', icon: '🚀' },
     { id: 'skills', label: '⭐ Skills', icon: '⭐' },
+    { id: 'market', label: '📈 Market Analysis', icon: '📈' },
     { id: 'earnings', label: '💰 Earnings', icon: '💰' },
   ];
 
@@ -359,6 +389,228 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
                     </div>
                   </motion.div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'market' && (
+            <div className="space-y-8">
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold text-white mb-4">
+                  📈 Market Analysis
+                </h2>
+                <p className="text-white/80 mb-6">
+                  AI-powered market analysis with real-time skill pricing data
+                </p>
+                
+                {!marketAnalysis ? (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleMarketAnalysis}
+                    disabled={isAnalyzing}
+                    className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-8 py-4 rounded-2xl font-bold text-lg shadow-xl transition-all disabled:opacity-50"
+                  >
+                    {isAnalyzing ? (
+                      <div className="flex items-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3"></div>
+                        Analyzing Market...
+                      </div>
+                    ) : (
+                      '🔍 Start Market Analysis'
+                    )}
+                  </motion.button>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Market Summary */}
+                    <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20">
+                      <h3 className="text-2xl font-bold text-white mb-4">📊 Market Summary</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-green-500/20 rounded-xl p-4">
+                          <h4 className="text-green-400 font-semibold mb-2">Top Paying Skills</h4>
+                          <div className="space-y-1">
+                            {marketAnalysis.marketSummary.topPayingSkills.map((skill, idx) => (
+                              <div key={idx} className="text-white text-sm">{skill}</div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="bg-blue-500/20 rounded-xl p-4">
+                          <h4 className="text-blue-400 font-semibold mb-2">Emerging Skills</h4>
+                          <div className="space-y-1">
+                            {marketAnalysis.marketSummary.emergingSkills.map((skill, idx) => (
+                              <div key={idx} className="text-white text-sm">{skill}</div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="bg-yellow-500/20 rounded-xl p-4">
+                          <h4 className="text-yellow-400 font-semibold mb-2">Market Hotspots</h4>
+                          <div className="space-y-1">
+                            {marketAnalysis.marketSummary.marketHotspots.map((region, idx) => (
+                              <div key={idx} className="text-white text-sm">{region}</div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="bg-red-500/20 rounded-xl p-4">
+                          <h4 className="text-red-400 font-semibold mb-2">Oversaturated</h4>
+                          <div className="space-y-1">
+                            {marketAnalysis.marketSummary.oversaturatedSkills.length > 0 ? (
+                              marketAnalysis.marketSummary.oversaturatedSkills.map((skill, idx) => (
+                                <div key={idx} className="text-white text-sm">{skill}</div>
+                              ))
+                            ) : (
+                              <div className="text-white text-sm">None identified</div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Skill Analysis */}
+                    <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20">
+                      <h3 className="text-2xl font-bold text-white mb-6">💰 Skill Pricing Analysis</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {marketAnalysis.skillAnalysis.map((skill, idx) => (
+                          <motion.div
+                            key={idx}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.1 }}
+                            className="bg-white/5 rounded-xl p-4 border border-white/10"
+                          >
+                            <div className="flex justify-between items-start mb-3">
+                              <h4 className="text-lg font-semibold text-white capitalize">{skill.skill}</h4>
+                              <span className="text-2xl">{skillIcons[skill.skill] || '💼'}</span>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex justify-between">
+                                <span className="text-white/70">Avg. Rate:</span>
+                                <span className="text-green-400 font-bold">${skill.averageHourlyRate}/hr</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-white/70">Demand:</span>
+                                <span className={`font-semibold ${
+                                  skill.demandLevel === 'very_high' ? 'text-red-400' :
+                                  skill.demandLevel === 'high' ? 'text-orange-400' :
+                                  skill.demandLevel === 'medium' ? 'text-yellow-400' : 'text-gray-400'
+                                }`}>
+                                  {skill.demandLevel.replace('_', ' ').toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-white/70">Trend:</span>
+                                <span className={`font-semibold ${
+                                  skill.marketTrend === 'surging' ? 'text-green-400' :
+                                  skill.marketTrend === 'growing' ? 'text-blue-400' :
+                                  skill.marketTrend === 'stable' ? 'text-yellow-400' : 'text-red-400'
+                                }`}>
+                                  {skill.marketTrend.toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-white/70">Competition:</span>
+                                <span className="text-white">{skill.competitionLevel}/10</span>
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Recommendations */}
+                    <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20">
+                      <h3 className="text-2xl font-bold text-white mb-6">🎯 Strategic Recommendations</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <h4 className="text-lg font-semibold text-green-400 mb-3">Short Term (1-3 months)</h4>
+                          <ul className="space-y-2">
+                            {marketAnalysis.recommendations.shortTerm.map((rec, idx) => (
+                              <li key={idx} className="text-white flex items-start">
+                                <span className="text-green-400 mr-2">•</span>
+                                {rec}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="text-lg font-semibold text-blue-400 mb-3">Medium Term (3-6 months)</h4>
+                          <ul className="space-y-2">
+                            {marketAnalysis.recommendations.mediumTerm.map((rec, idx) => (
+                              <li key={idx} className="text-white flex items-start">
+                                <span className="text-blue-400 mr-2">•</span>
+                                {rec}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="text-lg font-semibold text-purple-400 mb-3">Long Term (6-12 months)</h4>
+                          <ul className="space-y-2">
+                            {marketAnalysis.recommendations.longTerm.map((rec, idx) => (
+                              <li key={idx} className="text-white flex items-start">
+                                <span className="text-purple-400 mr-2">•</span>
+                                {rec}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="text-lg font-semibold text-yellow-400 mb-3">Rate Optimization</h4>
+                          <ul className="space-y-2">
+                            {marketAnalysis.recommendations.rateOptimization.map((rec, idx) => (
+                              <li key={idx} className="text-white flex items-start">
+                                <span className="text-yellow-400 mr-2">•</span>
+                                {rec}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Market Insights */}
+                    <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20">
+                      <h3 className="text-2xl font-bold text-white mb-6">💡 Market Insights</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-green-500/10 rounded-xl p-4">
+                          <h4 className="text-green-400 font-semibold mb-3">🚀 Opportunities</h4>
+                          <ul className="space-y-2">
+                            {marketAnalysis.insights.marketOpportunities.map((opp, idx) => (
+                              <li key={idx} className="text-white text-sm">• {opp}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="bg-red-500/10 rounded-xl p-4">
+                          <h4 className="text-red-400 font-semibold mb-3">⚠️ Threats</h4>
+                          <ul className="space-y-2">
+                            {marketAnalysis.insights.threatAnalysis.map((threat, idx) => (
+                              <li key={idx} className="text-white text-sm">• {threat}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="bg-blue-500/10 rounded-xl p-4">
+                          <h4 className="text-blue-400 font-semibold mb-3">💪 Advantages</h4>
+                          <ul className="space-y-2">
+                            {marketAnalysis.insights.competitiveAdvantages.map((adv, idx) => (
+                              <li key={idx} className="text-white text-sm">• {adv}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    {marketAnalysis.chainlinkData && (
+                      <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20">
+                        <h3 className="text-2xl font-bold text-white mb-4">⛓️ Chainlink Data</h3>
+                        <div className="text-green-400 text-sm mb-4">
+                          🤖 Real-time data from GetSkillPrice.sol contract
+                        </div>
+                        <pre className="bg-black/20 rounded-xl p-4 text-white text-sm overflow-x-auto">
+                          {JSON.stringify(marketAnalysis.chainlinkData, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
