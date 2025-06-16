@@ -23,6 +23,13 @@ This project features a sophisticated **three-agent ElizaOS-inspired system**:
 - **Features**: Browser notifications, transaction status tracking
 - **Integration**: SSR-safe implementation with client-side guards
 
+### 4. Market Analysis Agent (`marketAnalyzeAgent.ts`)
+- **AI Model**: Google Gemini 1.5 Flash for advanced market analysis
+- **Character**: Expert freelance market analyst with 15+ years of experience
+- **Unique Feature: 100% on-chain data**: Only accepts verified Chainlink Functions oracle data
+- **Multi-Dimensional Analysis**: Price, demand, competition, trends, and regional multipliers 
+
+
 ## 🚀 Complete Feature Set
 
 ### 🎨 Modern UI/UX Design
@@ -56,6 +63,12 @@ This project features a sophisticated **three-agent ElizaOS-inspired system**:
 - **Scoring**: Compatibility scores and skill assessments
 - **Projections**: Weekly, monthly, and yearly earnings estimates
 
+### 🔍 Market Intelligence System
+- **Real-time Oracle Data**: Chainlink Functions integration for 100% verified on-chain market data
+- **Multi-Dimensional Analysis**: Price, demand, competition, trends, and regional multipliers across 19+ technical skills
+- **Predictive Modeling**: 3-month, 6-month, and yearly rate forecasting with market health scoring
+- **Smart Performance**: Intelligent 5-minute data caching with confidence metrics and source attribution
+
 ### 🎯 Advanced Tokenization Features
 - **Agentic Mode**: AI-powered token strategy planning
 - **Bundle Selection**: Multi-token package creation
@@ -67,6 +80,13 @@ This project features a sophisticated **three-agent ElizaOS-inspired system**:
 - **Portfolio Tracking**: Personal dashboard with analytics
 - **Transaction History**: Complete audit trail of all activities
 - **Performance Metrics**: Token performance and earnings tracking
+
+### Oracle Infrastructure
+- **Chainlink Functions**: Custom GetSkillPrice.sol contract on Avalanche Fuji
+- **Oracle Network**: DON (Decentralized Oracle Network) for secure data fetching
+- **Data Source**: Real-time Supabase API integration with skill market data
+- **Security**: Allow-list access control and request validation
+
 
 ## 🛠 Tech Stack
 
@@ -95,6 +115,13 @@ This project features a sophisticated **three-agent ElizaOS-inspired system**:
 - **Build**: Next.js with Turbopack for fast development
 - **Deployment**: Optimized for production environments
 
+### Oracle Infrastructure
+- **Chainlink Functions**: Custom GetSkillPrice.sol contract on Avalanche Fuji
+- **Oracle Network**: DON (Decentralized Oracle Network) for secure data fetching
+- **Data Source**: Real-time Supabase API integration with skill market data
+- **Security**: Allow-list access control and request validation
+
+
 ## 🔧 Setup & Installation
 
 ### Prerequisites
@@ -106,6 +133,8 @@ npm or yarn
 # API Keys needed
 Google Gemini API Key
 WalletConnect Project ID
+Supabase Project URL and Anon Key
+Chainlink Functions Subscription ID
 ```
 
 ### Environment Configuration
@@ -122,8 +151,47 @@ AVALANCHE_FUJI_RPC=your-avalanche-rpc
 SEPOLIA_ETH_RPC=your-ethereum-rpc
 SEPOLIA_BASE_RPC=your-base-rpc
 
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+
+# Chainlink Functions Configuration
+CHAINLINK_SUBSCRIPTION_ID=your-subscription-id
+CHAINLINK_DON_ID=fun-avalanche-fuji-1
+CHAINLINK_SECRETS_SLOT_ID=0
+CHAINLINK_SECRETS_VERSION=1
+
 # Development (optional)
 PRIVATE_KEY=your-private-key-for-testing
+```
+
+### Database Setup
+```bash
+# Navigate to https://supabase.com
+# Create new project
+# Get your project URL and anon key
+
+# Run the SQL script in Supabase SQL Editor
+# File: database/supabase-setup.sql
+# This creates skill_market_data table with initial data
+
+# Check that skill_market_data table exists
+# Verify 19+ skills are populated with market data
+```
+
+### Chainlink Functions
+1. **Deploy GetSkillPrice Contract**
+```bash
+# Contract: src/app/artifacts/GetSkillprice.sol
+# Network: Avalanche Fuji Testnet
+# Update contract address in constants.ts
+```
+
+2. **Configure DON Secrets**
+```bash
+# Upload Supabase API key to DON
+# Use scripts/upload-secrets.js
+# Update secrets slot ID and version
 ```
 
 ### Installation Steps
@@ -233,6 +301,16 @@ npm run lint         # Run ESLint checks
 - **Rate Limiting**: AI API usage optimization and protection
 - **Wallet Security**: Industry-standard wallet integration practices
 - **Data Privacy**: No sensitive data storage, session-only persistence
+- **Access Control**: Allow-list protected smart contract functions
+
+## 📊 Market Metrics
+
+- **Real-time Rates**: Current hourly rates from verified sources
+- **Demand Levels**: Market demand scoring (1-100)
+- **Competition Analysis**: Competition intensity (1-10)
+- **Market Trends**: declining/stable/growing/surging
+- **Regional Multipliers**: Geographic pricing adjustments
+- **Project Volume**: Available project quantities
 
 ## 🚀 Deployment
 
@@ -249,6 +327,7 @@ The application is optimized for deployment on:
 - **Caching**: Intelligent API response caching
 - **Lazy Loading**: Component-based lazy loading
 - **Bundle Analysis**: Optimized bundle size management
+- **Oracle Optimization**: Smart contract gas optimization
 
 ---
 
