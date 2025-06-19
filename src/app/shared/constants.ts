@@ -1,4 +1,4 @@
- // constants.ts
+// constants.ts
 // Clean TokenizeAI Smart Contract Configuration
 
 // ===== CHAIN CONFIGURATION =====
@@ -19,9 +19,17 @@ export const GETSKILLPRICE_CONTRACT_ADDRESSES = {
 	[AVALANCHE_FUJI_CHAIN_ID]: process.env.NEXT_PUBLIC_GETSKILLPRICE_CONTRACT_AVALANCHE || "0x5f6b3e64a1823ab48bf4acb8b3716ac7b77defb1"
 } as const;
 
+// KYC Contract Addresses (GetWalletKYC.sol)
+export const KYC_CONTRACT_ADDRESSES = {
+	ETHEREUM_SEPOLIA: process.env.NEXT_PUBLIC_KYC_CONTRACT_ETHEREUM || "0x0000000000000000000000000000000000000000",
+	BASE_SEPOLIA: process.env.NEXT_PUBLIC_KYC_CONTRACT_BASE || "0x0000000000000000000000000000000000000000",
+	AVALANCHE_FUJI: process.env.NEXT_PUBLIC_KYC_CONTRACT_AVALANCHE || "0xE552B807E1A1A6B2393aF3781fEc54127756be0E"
+} as const;
+
 // Default contract addresses for easy access
 export const DEFAULT_TIME_TOKEN_CONTRACT = TIME_TOKEN_CONTRACT_ADDRESSES[AVALANCHE_FUJI_CHAIN_ID];
 export const DEFAULT_GETSKILLPRICE_CONTRACT = GETSKILLPRICE_CONTRACT_ADDRESSES[AVALANCHE_FUJI_CHAIN_ID];
+export const KYC_CONTRACT_ADDRESS = KYC_CONTRACT_ADDRESSES.AVALANCHE_FUJI;
 
 // ===== NETWORK CONFIGURATION =====
 export const RPC_URLS = {
@@ -35,6 +43,7 @@ export const BLOCK_EXPLORERS = {
 	[BASE_SEPOLIA_CHAIN_ID]: 'https://sepolia.basescan.org',
 	[ETHEREUM_SEPOLIA_CHAIN_ID]: 'https://sepolia.etherscan.io'
 } as const;
+
 
 // ===== WEB3 CONFIGURATION =====
 export const WEB3_CONFIG = {
@@ -82,6 +91,15 @@ export const SUPABASE_CONFIG = {
 	}
 } as const;
 
+// API Endpoints
+export const API_ENDPOINTS = {
+	SUPABASE_SKILLS_ENDPOINT: `${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.tables.skillMarketData}`,
+	CHAINLINK_FUNCTIONS_ENDPOINT: 'https://functions.chain.link',
+	AVALANCHE_EXPLORER: 'https://testnet.snowtrace.io',
+	BASE_EXPLORER: 'https://sepolia.basescan.org',
+	ETHEREUM_EXPLORER: 'https://sepolia.etherscan.io'
+} as const;
+
 // ===== MARKET ANALYSIS CONFIGURATION =====
 export const MARKET_ANALYSIS_CONFIG = {
 	CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
@@ -119,6 +137,7 @@ export const getSkillPriceContract = (chainId?: number): string => {
 };
 
 // ===== CONTRACT ABIs =====
+
 
 // Import GetSkillPrice ABI from proper file
 export { GET_SKILL_PRICE_ABI as GETSKILLPRICE_ABI } from '../abi/GetSkillPrice.abi';

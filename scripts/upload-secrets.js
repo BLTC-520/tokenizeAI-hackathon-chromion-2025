@@ -4,15 +4,16 @@
 const { SecretsManager } = require("@chainlink/functions-toolkit");
 const { ethers } = require("ethers");
 const fs = require("fs");
+require('dotenv').config({ path: '.env.local' });
 
 async function uploadSecretsFixed() {
     console.log("🚀 Uploading Secrets for GetSkillPrice Contract\n");
 
-    // Configuration
-    const PRIVATE_KEY = "91221f54efb04f558c0535c80d16b28775331596606bd4526e29ca4375297fe6";
-    const RPC_URL = "https://avax-fuji.g.alchemy.com/v2/ZDRXbJd_qraq5rTvWv4Qv";
+    // Configuration from environment variables
+    const PRIVATE_KEY = process.env.PRIVATE_KEY;
+    const RPC_URL = process.env.AVALANCHE_FUJI_RPC;
     const FUNCTIONS_ROUTER_ADDRESS = "0xA9d587a00A31A52Ed70D6026794a8FC5E2F5dCb0";
-    const DON_ID = "fun-avalanche-fuji-1";
+    const DON_ID = process.env.CHAINLINK_DON_ID || "fun-avalanche-fuji-1";
 
     // Chainlink Gateway URLs
     const gatewayUrls = [
@@ -23,9 +24,10 @@ async function uploadSecretsFixed() {
     const slotIdNumber = 0;
     const expirationTimeMinutes = 1440; // 24 hours
 
-    // Your Supabase API key
+    // Your Supabase secrets - BOTH API key and URL are required
     const secrets = {
-        apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0c3J1enNjY3VkZXJjZGF4Ym1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk3NDYwOTQsImV4cCI6MjA2NTMyMjA5NH0.bN8vI9syCe_6XkXpZ79HLyyuIhP5gXJu0K9JO_Uqr48"
+        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL
     };
 
     try {
@@ -99,7 +101,7 @@ async function uploadSecretsFixed() {
             uploadTimestamp: new Date().toISOString(),
             gatewayUrls: gatewayUrls,
             success: true,
-            contractAddress: "0x5f6b3e64a1823ab48bf4acb8b3716ac7b77defb1",
+            contractAddress: "0xF11d5cEEdDeAd319c1C6b2B4Adf64Ea34DD72e39",
             subscriptionId: "15603"
         };
 

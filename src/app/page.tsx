@@ -8,6 +8,7 @@ import ProcessingState from './components/ProcessingState';
 import Portfolio from './components/Portfolio';
 import StorageDebug from './components/StorageDebug';
 import ScrollableLanding from './components/ScrollableLanding';
+import AutoKYC from './components/AutoKYC';
 import { PortfolioData } from './services/elizaAgent';
 import TokenizationModeSelector from './components/TokenizationModeSelector';
 import TokenCreation from './components/TokenCreation';
@@ -19,25 +20,31 @@ import { TokenSuggestion } from './services/tokenizeAgent';
 import { useTimeTokenizerStorage } from './hooks/useLocalStorage';
 import { UserAnswers } from './utils/localStorage';
 import { isSupportedChain, getChainDisplayName } from './lib/wagmi';
+import { KYCResult } from './services/unifiedKycAgent';
 
-type AppState = 'landing' | 'questionnaire' | 'processing' | 'portfolio' | 'tokenization' | 'token_creation' | 'marketplace' | 'dashboard';
+type AppState = 'landing' | 'kyc_verification' | 'questionnaire' | 'processing' | 'portfolio' | 'tokenization' | 'token_creation' | 'marketplace' | 'dashboard';
 
 export default function Home() {
   const { isConnected, address } = useAccount();
   const chainId = useChainId();
   const storage = useTimeTokenizerStorage();
-  
+
   // Local state for immediate UI updates
   const [isInitialized, setIsInitialized] = useState(false);
   const [showChainWarning, setShowChainWarning] = useState(false);
   const [selectedTokenSuggestion, setSelectedTokenSuggestion] = useState<TokenSuggestion | null>(null);
+<<<<<<< Updated upstream
   const [isProcessingTransaction, setIsProcessingTransaction] = useState(false);
+=======
+  const [kycVerified, setKycVerified] = useState(false);
+  const [kycResult, setKycResult] = useState<KYCResult | null>(null);
+>>>>>>> Stashed changes
 
   // Initialize app state from localStorage on mount
   useEffect(() => {
     if (storage.isFullyLoaded) {
       console.log('📱 Initializing app from localStorage...');
-      
+
       // Restore wallet data if connected
       if (isConnected && address) {
         storage.wallet.saveWallet({
@@ -46,7 +53,7 @@ export default function Home() {
           isConnected: true,
           lastConnected: Date.now(),
         });
-        
+
         // Update chain preference
         if (chainId) {
           storage.chainPreference.updateChainPreference(chainId);
@@ -90,21 +97,32 @@ export default function Home() {
         console.log('🏠 Redirecting to landing - wallet disconnected');
         storage.appState.updateAppState('landing');
       }
+
+      // Reset KYC status when wallet disconnects
+      if (kycVerified) {
+        console.log('🔐 Resetting KYC status - wallet disconnected');
+        setKycVerified(false);
+        setKycResult(null);
+      }
+
       return;
     }
 
-    // Wallet connected - determine next state
+    // Wallet connected - determine next state (KYC flow)
     if (isConnected) {
       if (currentAppState === 'landing') {
-        if (hasPortfolioData) {
-          console.log('📊 Redirecting to portfolio - data found');
+        if (hasPortfolioData && kycVerified) {
+          console.log('📊 Redirecting to portfolio - data found and KYC verified');
           storage.appState.updateAppState('portfolio');
-        } else if (hasUserAnswers) {
-          console.log('⏳ Redirecting to processing - answers found');
+        } else if (hasUserAnswers && kycVerified) {
+          console.log('⏳ Redirecting to processing - answers found and KYC verified');
           storage.appState.updateAppState('processing');
-        } else {
-          console.log('📝 Redirecting to questionnaire - starting fresh');
+        } else if (kycVerified) {
+          console.log('📝 Redirecting to questionnaire - KYC verified, ready for questions');
           storage.appState.updateAppState('questionnaire');
+        } else {
+          console.log('🔐 Redirecting to KYC verification - wallet connected but not verified');
+          storage.appState.updateAppState('kyc_verification');
         }
       }
     }
@@ -115,7 +133,7 @@ export default function Home() {
     if (isConnected && chainId) {
       const isSupported = isSupportedChain(chainId);
       setShowChainWarning(!isSupported);
-      
+
       if (!isSupported) {
         console.warn(`⚠️ Unsupported chain: ${getChainDisplayName(chainId)} (${chainId})`);
       } else {
@@ -125,6 +143,21 @@ export default function Home() {
       setShowChainWarning(false);
     }
   }, [isConnected, chainId]);
+
+  // KYC Event Handlers
+  const handleKYCAccessGranted = () => {
+    console.log('🎉 KYC Access Granted - User can proceed to questionnaire');
+    setKycVerified(true);
+    storage.appState.updateAppState('questionnaire');
+  };
+
+  const handleKYCComplete = (result: KYCResult) => {
+    console.log('🔐 KYC Verification Complete:', result);
+    setKycResult(result);
+    if (result.success) {
+      setKycVerified(true);
+    }
+  };
 
   const handleQuestionnaireComplete = (answers: UserAnswers) => {
     console.log('📝 Questionnaire completed for:', answers.name);
@@ -167,16 +200,16 @@ export default function Home() {
 
   const handleTokenCreationCancel = () => {
     console.log('❌ Token creation cancelled');
-    
+
     // Check if there are any pending operations or active transactions
     if (isProcessingTransaction) {
       console.warn('⚠️ Cannot cancel - transactions still pending');
       return;
     }
-    
+
     // Clean up selected token suggestion
     setSelectedTokenSuggestion(null);
-    
+
     // Return to tokenization mode
     storage.appState.updateAppState('tokenization');
   };
@@ -240,98 +273,109 @@ export default function Home() {
         {/* Debug Info - Remove in production */}
         {process.env.NODE_ENV === 'development' && (
           <div className="fixed top-4 right-4 bg-white/10 backdrop-blur-lg border border-white/20 text-white p-2 rounded text-xs z-50">
-            State: {currentAppState} | Connected: {isConnected ? '✅' : '❌'} | 
+            State: {currentAppState} | Connected: {isConnected ? '✅' : '❌'} |
             Chain: {chainId ? getChainDisplayName(chainId) : 'None'} |
+            KYC: {kycVerified ? '✅' : '❌'} |
             Answers: {userAnswers ? '✅' : '❌'} | Portfolio: {portfolioData ? '✅' : '❌'}
           </div>
         )}
 
-      {/* Chain Warning */}
-      {showChainWarning && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-500/20 backdrop-blur-lg border border-red-400 text-red-200 px-6 py-3 rounded-lg z-40 max-w-md text-center">
-          <p className="font-semibold mb-1">⚠️ Unsupported Network</p>
-          <p className="text-sm">Please switch to Avalanche Fuji to use Time Tokenizer</p>
-        </div>
-      )}
+        {/* Chain Warning */}
+        {showChainWarning && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-500/20 backdrop-blur-lg border border-red-400 text-red-200 px-6 py-3 rounded-lg z-40 max-w-md text-center">
+            <p className="font-semibold mb-1">⚠️ Unsupported Network</p>
+            <p className="text-sm">Please switch to Avalanche Fuji to use Time Tokenizer</p>
+          </div>
+        )}
 
-      {currentAppState === 'landing' && (
-        <ScrollableLanding 
-          onGetStarted={() => {
-            // Trigger state transition based on stored data
-            if (portfolioData) {
-              storage.appState.updateAppState('portfolio');
-            } else if (userAnswers) {
-              storage.appState.updateAppState('processing');
-            } else {
-              storage.appState.updateAppState('questionnaire');
-            }
-          }}
-        />
-      )}
-
-      {currentAppState === 'questionnaire' && (
-        <div className="pt-20">
-          <ImprovedQuestionnaire onComplete={handleQuestionnaireComplete} />
-        </div>
-      )}
-
-      {currentAppState === 'processing' && userAnswers && (
-        <ProcessingState 
-          userAnswers={userAnswers} 
-          onComplete={handleProcessingComplete} 
-        />
-      )}
-
-      {currentAppState === 'portfolio' && userAnswers && portfolioData && (
-        <div className="pt-20">
-          <Portfolio 
-            userAnswers={userAnswers} 
-            portfolioData={portfolioData}
-            onProceedToTokenization={handleProceedToTokenization}
+        {currentAppState === 'landing' && (
+          <ScrollableLanding
+            onGetStarted={() => {
+              // Trigger state transition based on stored data
+              if (portfolioData) {
+                storage.appState.updateAppState('portfolio');
+              } else if (userAnswers) {
+                storage.appState.updateAppState('processing');
+              } else {
+                storage.appState.updateAppState('questionnaire');
+              }
+            }}
           />
-        </div>
-      )}
+        )}
 
-      {currentAppState === 'tokenization' && userAnswers && portfolioData && (
-        <div className="pt-20">
-          <TokenizationModeSelector
+        {currentAppState === 'kyc_verification' && (
+          <div className="pt-20">
+            <AutoKYC
+              onAccessGranted={handleKYCAccessGranted}
+              onKYCComplete={handleKYCComplete}
+              enableAutoTrigger={true}
+            />
+          </div>
+        )}
+
+        {currentAppState === 'questionnaire' && (
+          <div className="pt-20">
+            <ImprovedQuestionnaire onComplete={handleQuestionnaireComplete} />
+          </div>
+        )}
+
+        {currentAppState === 'processing' && userAnswers && (
+          <ProcessingState
             userAnswers={userAnswers}
-            portfolioData={portfolioData}
-            onTokenizeSelected={handleTokenizeSelected}
-            onViewMarketplace={handleViewMarketplace}
-            onComplete={handleAgenticModeComplete}
-            onBack={handleBackToPortfolio}
+            onComplete={handleProcessingComplete}
           />
-        </div>
-      )}
+        )}
 
-      {currentAppState === 'token_creation' && selectedTokenSuggestion && (
-        <div className="pt-20">
-          <TokenCreation
-            suggestion={selectedTokenSuggestion}
-            onSuccess={handleTokenCreationSuccess}
-            onCancel={handleTokenCreationCancel}
-          />
-        </div>
-      )}
+        {currentAppState === 'portfolio' && userAnswers && portfolioData && (
+          <div className="pt-20">
+            <Portfolio
+              userAnswers={userAnswers}
+              portfolioData={portfolioData}
+              onProceedToTokenization={handleProceedToTokenization}
+            />
+          </div>
+        )}
 
-      {currentAppState === 'marketplace' && (
-        <div className="pt-20">
-          <Marketplace
-            onCreateToken={handleCreateTokenFromMarketplace}
-            onViewDashboard={handleViewDashboard}
-          />
-        </div>
-      )}
+        {currentAppState === 'tokenization' && userAnswers && portfolioData && (
+          <div className="pt-20">
+            <TokenizationModeSelector
+              userAnswers={userAnswers}
+              portfolioData={portfolioData}
+              onTokenizeSelected={handleTokenizeSelected}
+              onViewMarketplace={handleViewMarketplace}
+              onComplete={handleAgenticModeComplete}
+              onBack={handleBackToPortfolio}
+            />
+          </div>
+        )}
 
-      {currentAppState === 'dashboard' && (
-        <div className="pt-20">
-          <Dashboard
-            onCreateToken={handleCreateTokenFromMarketplace}
-            onViewMarketplace={handleViewMarketplace}
-          />
-        </div>
-      )}
+        {currentAppState === 'token_creation' && selectedTokenSuggestion && (
+          <div className="pt-20">
+            <TokenCreation
+              suggestion={selectedTokenSuggestion}
+              onSuccess={handleTokenCreationSuccess}
+              onCancel={handleTokenCreationCancel}
+            />
+          </div>
+        )}
+
+        {currentAppState === 'marketplace' && (
+          <div className="pt-20">
+            <Marketplace
+              onCreateToken={handleCreateTokenFromMarketplace}
+              onViewDashboard={handleViewDashboard}
+            />
+          </div>
+        )}
+
+        {currentAppState === 'dashboard' && (
+          <div className="pt-20">
+            <Dashboard
+              onCreateToken={handleCreateTokenFromMarketplace}
+              onViewMarketplace={handleViewMarketplace}
+            />
+          </div>
+        )}
 
         {/* Debug Panel - Development Only */}
         {process.env.NODE_ENV === 'development' && <StorageDebug />}
