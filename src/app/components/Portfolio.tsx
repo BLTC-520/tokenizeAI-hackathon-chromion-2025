@@ -71,16 +71,18 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
   const calculateCompatibilityScore = () => {
     let score = 70; // base score
     
-    // Add points for diverse skills
-    score += Math.min(userAnswers.skills.length * 3, 20);
+    // Add points for diverse skills (with safety check)
+    const skillsLength = userAnswers.skills?.length || 0;
+    score += Math.min(skillsLength * 3, 20);
     
     // Add points for experience
     if (userAnswers.experience === 'expert') score += 10;
     else if (userAnswers.experience === 'advanced') score += 7;
     else if (userAnswers.experience === 'intermediate') score += 5;
     
-    // Add points for clear goals
-    if (userAnswers.goals.length > 50) score += 5;
+    // Add points for clear goals (with safety check)
+    const goalsLength = userAnswers.goals?.length || 0;
+    if (goalsLength > 50) score += 5;
     
     return Math.min(score, 98);
   };
@@ -132,7 +134,8 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
   };
 
   const generateSkillAssessment = () => {
-    return userAnswers.skills.map(skill => ({
+    const skills = userAnswers.skills || [];
+    return skills.map(skill => ({
       skill,
       level: Math.floor(Math.random() * 30) + 70, // 70-100%
       marketDemand: Math.floor(Math.random() * 20) + 80, // 80-100%
@@ -172,13 +175,14 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
       console.log('🔍 Starting market analysis...');
       
       // Fetch Chainlink data from GetSkillPrice.sol contract
+      const skills = userAnswers.skills || [];
       const chainlinkData = await marketAnalyzeAgent.fetchChainlinkData(
         GETSKILLPRICE_CONTRACT_ADDRESS, 
-        userAnswers.skills
+        skills
       );
       
       // Perform market analysis
-      const analysis = await marketAnalyzeAgent.analyzeMarket(userAnswers.skills, chainlinkData);
+      const analysis = await marketAnalyzeAgent.analyzeMarket(skills, chainlinkData);
       setMarketAnalysis(analysis);
       setActiveTab('market');
       
@@ -269,7 +273,7 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
                   </div>
                   <div>
                     <h3 className="text-white/80 font-semibold">Skills Count</h3>
-                    <p className="text-white text-lg">{userAnswers.skills.length} core skills</p>
+                    <p className="text-white text-lg">{userAnswers.skills?.length || 0} core skills</p>
                   </div>
                 </div>
                 <div className="mt-4">

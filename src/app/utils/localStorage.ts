@@ -34,7 +34,7 @@ export interface SessionData {
   userAnswers: UserAnswers | null;
   portfolioData: PortfolioData | null;
   walletData: WalletData | null;
-  currentAppState: 'landing' | 'questionnaire' | 'processing' | 'portfolio' | 'tokenization' | 'token_creation' | 'marketplace' | 'dashboard';
+  currentAppState: 'landing' | 'kyc_verification' | 'questionnaire' | 'processing' | 'portfolio' | 'tokenization' | 'token_creation' | 'marketplace' | 'dashboard';
   tokenDrafts: TokenDraft[];
   completedQuestionnaireStep: number;
   lastActivity: number;
