@@ -2,11 +2,11 @@ import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { mainnet, polygon, optimism, arbitrum, base, sepolia, baseSepolia } from 'wagmi/chains';
 import { defineChain } from 'viem';
 import { 
-  CONTRACT_ADDRESSES, 
+  TIME_TOKEN_CONTRACT_ADDRESSES, 
   AVALANCHE_FUJI_CHAIN_ID, 
   BASE_SEPOLIA_CHAIN_ID, 
   ETHEREUM_SEPOLIA_CHAIN_ID 
-} from '../../../constants';
+} from '../shared/constants';
 
 // Define Avalanche Fuji testnet
 export const avalancheFuji = defineChain({
@@ -49,15 +49,15 @@ export const supportedChains = [
 export const getContractAddress = (chainId: number): string => {
   switch (chainId) {
     case AVALANCHE_FUJI_CHAIN_ID:
-      return CONTRACT_ADDRESSES.AVALANCHE_FUJI;
+      return TIME_TOKEN_CONTRACT_ADDRESSES[AVALANCHE_FUJI_CHAIN_ID];
     case ETHEREUM_SEPOLIA_CHAIN_ID:
-      return CONTRACT_ADDRESSES.ETHEREUM_SEPOLIA;
+      return TIME_TOKEN_CONTRACT_ADDRESSES[ETHEREUM_SEPOLIA_CHAIN_ID];
     case BASE_SEPOLIA_CHAIN_ID:
-      return CONTRACT_ADDRESSES.BASE_SEPOLIA;
+      return TIME_TOKEN_CONTRACT_ADDRESSES[BASE_SEPOLIA_CHAIN_ID];
     default:
       // Default to Avalanche Fuji contract
       console.warn(`No contract address found for chainId ${chainId}, using Avalanche Fuji`);
-      return CONTRACT_ADDRESSES.AVALANCHE_FUJI;
+      return TIME_TOKEN_CONTRACT_ADDRESSES[AVALANCHE_FUJI_CHAIN_ID];
   }
 };
 

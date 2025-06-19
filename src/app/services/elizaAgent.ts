@@ -87,7 +87,7 @@ class ElizaPortfolioAgent {
       
       if (apiKey) {
         this.genAI = new GoogleGenerativeAI(apiKey);
-        this.model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+        this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         console.log('🧠 Gemini AI model loaded successfully');
       } else {
         console.warn('⚠️ No Gemini API key found, falling back to intelligent simulation');

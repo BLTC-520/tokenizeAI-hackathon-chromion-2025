@@ -63,6 +63,25 @@ export default function TokenCreation({ suggestion, onSuccess, onCancel }: Token
     return (customizations.totalHours / customizations.validityDays).toFixed(2);
   };
 
+  const handleTokenCreationCancel = () => {
+    console.log('❌ Token creation cancelled');
+    
+    // Clean up component state before cancelling
+    setIsCreating(false);
+    setCurrentStep(1);
+    setGasEstimate('');
+    
+    // Reset customizations to original suggestion values
+    setCustomizations({
+      serviceName: suggestion.serviceName,
+      pricePerHour: suggestion.suggestedPricePerHour,
+      totalHours: suggestion.suggestedTotalHours,
+      validityDays: suggestion.suggestedValidityDays
+    });
+    
+    onCancel();
+  };
+
   const handleCreateToken = async () => {
     if (!isConnected || !address) {
       alertAgent.addNotification({
@@ -334,7 +353,7 @@ export default function TokenCreation({ suggestion, onSuccess, onCancel }: Token
                 {/* Action Buttons */}
                 <div className="flex gap-4">
                   <button
-                    onClick={onCancel}
+                    onClick={handleTokenCreationCancel}
                     className="flex-1 bg-white/20 hover:bg-white/30 text-white py-4 px-6 rounded-xl font-medium transition-all border border-white/30"
                   >
                     Cancel

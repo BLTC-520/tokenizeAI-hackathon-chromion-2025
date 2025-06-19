@@ -13,7 +13,7 @@ import {
   MARKET_ANALYSIS_CONFIG,
   ERROR_MESSAGES,
   SUCCESS_MESSAGES,
-} from '../../../constants';
+} from '../shared/constants';
 
 // Skill type definition - consistent with constants.ts
 export type SupportedSkill = 'frontend' | 'backend' | 'fullstack' | 'blockchain' | 'ai' | 'mobile' |

@@ -126,10 +126,10 @@ export default function NotificationCenter({ className = '' }: NotificationCente
             initial={{ opacity: 0, y: -10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            className="absolute top-full right-0 mt-2 w-96 bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 shadow-2xl z-50 max-h-96 overflow-hidden"
+            className="absolute top-full right-0 mt-2 w-96 bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-white/30 shadow-2xl z-50 max-h-96 overflow-hidden"
           >
             {/* Header */}
-            <div className="p-4 border-b border-white/20">
+            <div className="p-4 border-b border-white/30">
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-white font-semibold">Notifications</h3>
                 <div className="flex gap-2">

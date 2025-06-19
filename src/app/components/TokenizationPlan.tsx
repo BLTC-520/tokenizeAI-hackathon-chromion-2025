@@ -105,7 +105,7 @@ export default function TokenizationPlan({
 
   const handleSelectSuggestion = (suggestion: TokenSuggestion) => {
     setSelectedSuggestion(suggestion.id);
-    storage.tokenDrafts.saveTokenDraft({
+    storage.tokenDrafts.saveDraft({
       id: Date.now().toString(),
       suggestion,
       customizations: {},

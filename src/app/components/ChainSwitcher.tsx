@@ -4,14 +4,12 @@ import { useState } from 'react';
 import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  avalancheFuji, 
   getChainDisplayName, 
   isSupportedChain, 
-  getContractAddress,
-  defaultChain 
+  getContractAddress
 } from '../lib/wagmi';
 import { useChainPreference } from '../hooks/useLocalStorage';
-import { AVALANCHE_FUJI_CHAIN_ID, ETHEREUM_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID } from '../../../constants';
+import { AVALANCHE_FUJI_CHAIN_ID, ETHEREUM_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID } from '../shared/constants';
 
 const supportedTestnets = [
   {

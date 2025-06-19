@@ -2,7 +2,8 @@
 
 import { writeContract, readContract, waitForTransactionReceipt, getAccount, getChainId } from '@wagmi/core';
 import { parseEther, formatEther, parseUnits, formatUnits } from 'viem';
-import { erc1155Abi, CONTRACT_ADDRESSES } from '../../../constants';
+import { TIME_TOKEN_CONTRACT_ADDRESSES } from '../shared/constants';
+import { TIME_TOKEN_ABI } from '../abi/TimeToken.abi';
 import { getContractAddress } from '../lib/wagmi';
 import { config } from '../lib/wagmi';
 import { getAlertAgent } from './alertAgent';
@@ -78,7 +79,7 @@ export class ContractService {
       // Call the smart contract
       const hash = await writeContract(config, {
         address: contractAddress as `0x${string}`,
-        abi: erc1155Abi,
+        abi: TIME_TOKEN_ABI,
         functionName: 'createTimeToken',
         args: [
           account.address,
@@ -171,7 +172,7 @@ export class ContractService {
 
       const hash = await writeContract(config, {
         address: contractAddress as `0x${string}`,
-        abi: erc1155Abi,
+        abi: TIME_TOKEN_ABI,
         functionName: 'purchaseTimeToken',
         args: [
           BigInt(params.tokenId),
@@ -241,7 +242,7 @@ export class ContractService {
 
       const hash = await writeContract(config, {
         address: contractAddress as `0x${string}`,
-        abi: erc1155Abi,
+        abi: TIME_TOKEN_ABI,
         functionName: 'markServiceCompleted',
         args: [
           BigInt(tokenId),
@@ -290,7 +291,7 @@ export class ContractService {
 
       const hash = await writeContract(config, {
         address: contractAddress as `0x${string}`,
-        abi: erc1155Abi,
+        abi: TIME_TOKEN_ABI,
         functionName: 'deactivateToken',
         args: [BigInt(tokenId)]
       });
@@ -325,7 +326,7 @@ export class ContractService {
 
       const tokenId = await readContract(config, {
         address: contractAddress as `0x${string}`,
-        abi: erc1155Abi,
+        abi: TIME_TOKEN_ABI,
         functionName: 'getCurrentTokenId'
       });
 
@@ -344,7 +345,7 @@ export class ContractService {
 
       const tokenData = await readContract(config, {
         address: contractAddress as `0x${string}`,
-        abi: erc1155Abi,
+        abi: TIME_TOKEN_ABI,
         functionName: 'getTimeToken',
         args: [BigInt(tokenId)]
       });
@@ -383,7 +384,7 @@ export class ContractService {
 
       const marketData = await readContract(config, {
         address: contractAddress as `0x${string}`,
-        abi: erc1155Abi,
+        abi: TIME_TOKEN_ABI,
         functionName: 'getMarketData',
         args: [BigInt(tokenId)]
       });
@@ -411,7 +412,7 @@ export class ContractService {
 
       const tokens = await readContract(config, {
         address: contractAddress as `0x${string}`,
-        abi: erc1155Abi,
+        abi: TIME_TOKEN_ABI,
         functionName: 'getCreatorTokens',
         args: [creator as `0x${string}`]
       });
@@ -432,7 +433,7 @@ export class ContractService {
 
       const tokens = await readContract(config, {
         address: contractAddress as `0x${string}`,
-        abi: erc1155Abi,
+        abi: TIME_TOKEN_ABI,
         functionName: 'getBuyerTokens',
         args: [buyer as `0x${string}`]
       });
@@ -453,7 +454,7 @@ export class ContractService {
 
       const balance = await readContract(config, {
         address: contractAddress as `0x${string}`,
-        abi: erc1155Abi,
+        abi: TIME_TOKEN_ABI,
         functionName: 'balanceOf',
         args: [account as `0x${string}`, BigInt(tokenId)]
       });

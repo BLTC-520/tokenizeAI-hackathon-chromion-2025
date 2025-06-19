@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAccount, useWriteContract, useChainId, useWaitForTransactionReceipt } from 'wagmi';
 import { TokenBundle } from '../services/tokenizeAgent';
 import { CreateTokenParams, ParameterValidationService } from '../services/parameterValidation';
-import { TIME_TOKEN_CONTRACT_ADDRESS, TIME_TOKEN_ABI } from '../../../constants';
+import { TIME_TOKEN_CONTRACT_ADDRESSES } from '../shared/constants';
+import { TIME_TOKEN_ABI } from '../abi/TimeToken.abi';
 import { parseEther } from 'viem';
 
 interface TransactionProgressProps {
@@ -34,12 +35,14 @@ export default function TransactionProgress({
   const [steps, setSteps] = useState<TokenCreationStep[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [completedTokenIds, setCompletedTokenIds] = useState<string[]>([]);
+  const [isCancelled, setIsCancelled] = useState(false);
+  const [transactionTimeout, setTransactionTimeout] = useState<NodeJS.Timeout | null>(null);
 
   // Contract write hook
   const { writeContract: createToken, data: txHash, isPending: isWriting } = useWriteContract();
 
   // Transaction wait hook
-  const { isLoading: isConfirming, isSuccess, isError } = useWaitForTransactionReceipt({
+  const { isLoading: isConfirming, isSuccess, isError, error: txError } = useWaitForTransactionReceipt({
     hash: txHash,
   });
 
@@ -55,7 +58,7 @@ export default function TransactionProgress({
 
   // Start processing when component mounts
   useEffect(() => {
-    if (steps.length > 0 && !isProcessing) {
+    if (steps.length > 0 && !isProcessing && !isCancelled) {
       setIsProcessing(true);
       processNextToken();
     }
@@ -65,11 +68,32 @@ export default function TransactionProgress({
   useEffect(() => {
     if (txHash && currentStepIndex < steps.length) {
       updateStepStatus(currentStepIndex, 'confirming', { txHash: txHash });
+      
+      // Set a 2-minute timeout for the transaction
+      const timeout = setTimeout(() => {
+        if (!isSuccess && !isError && !isCancelled) {
+          console.warn('⏰ Transaction timeout after 2 minutes');
+          updateStepStatus(currentStepIndex, 'failed', { 
+            error: 'Transaction timed out. The blockchain network may be congested.' 
+          });
+          setTimeout(() => {
+            onError();
+          }, 2000);
+        }
+      }, 120000); // 2 minutes
+      
+      setTransactionTimeout(timeout);
     }
   }, [txHash]);
 
   useEffect(() => {
-    if (isSuccess && currentStepIndex < steps.length) {
+    if (isSuccess && currentStepIndex < steps.length && !isCancelled) {
+      // Clear the timeout since transaction succeeded
+      if (transactionTimeout) {
+        clearTimeout(transactionTimeout);
+        setTransactionTimeout(null);
+      }
+      
       // Generate a mock token ID (in real implementation, this would come from contract events)
       const tokenId = `token-${Date.now()}-${currentStepIndex}`;
       updateStepStatus(currentStepIndex, 'completed', { tokenId });
@@ -77,13 +101,15 @@ export default function TransactionProgress({
       
       // Move to next token or complete
       setTimeout(() => {
-        if (currentStepIndex + 1 < bundle.tokens.length) {
+        if (!isCancelled && currentStepIndex + 1 < bundle.tokens.length) {
           setCurrentStepIndex(currentStepIndex + 1);
           processNextToken();
-        } else {
+        } else if (!isCancelled) {
           // All tokens completed
           setTimeout(() => {
-            onComplete([...completedTokenIds, tokenId]);
+            if (!isCancelled) {
+              onComplete([...completedTokenIds, tokenId]);
+            }
           }, 1000);
         }
       }, 1000);
@@ -92,14 +118,31 @@ export default function TransactionProgress({
 
   useEffect(() => {
     if (isError && currentStepIndex < steps.length) {
+      // Clear the timeout since transaction failed
+      if (transactionTimeout) {
+        clearTimeout(transactionTimeout);
+        setTransactionTimeout(null);
+      }
+      
+      const errorMessage = txError ? txError.message : 'Transaction failed. Please try again.';
+      console.error('❌ Transaction failed:', txError);
       updateStepStatus(currentStepIndex, 'failed', { 
-        error: 'Transaction failed. Please try again.' 
+        error: errorMessage
       });
       setTimeout(() => {
         onError();
       }, 2000);
     }
-  }, [isError]);
+  }, [isError, txError]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (transactionTimeout) {
+        clearTimeout(transactionTimeout);
+      }
+    };
+  }, [transactionTimeout]);
 
   const updateStepStatus = (
     stepIndex: number, 
@@ -113,8 +156,23 @@ export default function TransactionProgress({
     ));
   };
 
+  const handleCancel = () => {
+    console.log('❌ Transaction process cancelled');
+    setIsCancelled(true);
+    setIsProcessing(false);
+    
+    // Update current step to cancelled if not completed
+    if (currentStepIndex < steps.length && steps[currentStepIndex]?.status !== 'completed') {
+      updateStepStatus(currentStepIndex, 'failed', { 
+        error: 'Cancelled by user' 
+      });
+    }
+    
+    onError();
+  };
+
   const processNextToken = async () => {
-    if (currentStepIndex >= bundle.tokens.length) return;
+    if (currentStepIndex >= bundle.tokens.length || isCancelled) return;
 
     const token = bundle.tokens[currentStepIndex];
     updateStepStatus(currentStepIndex, 'preparing');
@@ -133,7 +191,7 @@ export default function TransactionProgress({
 
       // Call smart contract
       createToken({
-        address: TIME_TOKEN_CONTRACT_ADDRESS[chainId as keyof typeof TIME_TOKEN_CONTRACT_ADDRESS] as `0x${string}`,
+        address: TIME_TOKEN_CONTRACT_ADDRESSES[chainId as keyof typeof TIME_TOKEN_CONTRACT_ADDRESSES] as `0x${string}`,
         abi: TIME_TOKEN_ABI,
         functionName: 'createTimeToken',
         args: [
@@ -386,7 +444,7 @@ export default function TransactionProgress({
           className="mt-6 text-center"
         >
           <button
-            onClick={onError}
+            onClick={handleCancel}
             className="text-gray-500 hover:text-gray-700 text-sm underline"
           >
             Cancel and Return to Review

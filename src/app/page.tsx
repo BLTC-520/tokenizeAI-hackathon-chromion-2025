@@ -7,7 +7,6 @@ import ImprovedQuestionnaire from './components/ImprovedQuestionnaire';
 import ProcessingState from './components/ProcessingState';
 import Portfolio from './components/Portfolio';
 import StorageDebug from './components/StorageDebug';
-import ChainSwitcher from './components/ChainSwitcher';
 import ScrollableLanding from './components/ScrollableLanding';
 import { PortfolioData } from './services/elizaAgent';
 import TokenizationModeSelector from './components/TokenizationModeSelector';
@@ -32,6 +31,7 @@ export default function Home() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [showChainWarning, setShowChainWarning] = useState(false);
   const [selectedTokenSuggestion, setSelectedTokenSuggestion] = useState<TokenSuggestion | null>(null);
+  const [isProcessingTransaction, setIsProcessingTransaction] = useState(false);
 
   // Initialize app state from localStorage on mount
   useEffect(() => {
@@ -167,7 +167,17 @@ export default function Home() {
 
   const handleTokenCreationCancel = () => {
     console.log('❌ Token creation cancelled');
+    
+    // Check if there are any pending operations or active transactions
+    if (isProcessingTransaction) {
+      console.warn('⚠️ Cannot cancel - transactions still pending');
+      return;
+    }
+    
+    // Clean up selected token suggestion
     setSelectedTokenSuggestion(null);
+    
+    // Return to tokenization mode
     storage.appState.updateAppState('tokenization');
   };
 

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { PortfolioData } from '../services/elizaAgent';
 import { marketAnalyzeAgent, MarketAnalysisResult } from '../services/marketAnalyzeAgent';
-import { GETSKILLPRICE_CONTRACT_ADDRESS } from '../../../constants';
+import { GETSKILLPRICE_CONTRACT_ADDRESS } from '../shared/constants';
 
 interface UserAnswers {
   name: string;
@@ -37,18 +37,6 @@ const skillIcons: { [key: string]: string } = {
   project: '📋',
 };
 
-const projectIcons: { [key: string]: string } = {
-  startup: '🚀',
-  enterprise: '🏢',
-  nonprofit: '❤️',
-  creative: '🎨',
-  education: '📚',
-  fintech: '💰',
-  healthcare: '🏥',
-  gaming: '🎮',
-  ecommerce: '🛒',
-  blockchain: '⛓️',
-};
 
 export default function Portfolio({ userAnswers, portfolioData, onProceedToTokenization }: PortfolioProps) {
   const [activeTab, setActiveTab] = useState('overview');
@@ -98,21 +86,57 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
   };
 
   const generateRecommendedProjects = () => {
+    // Generate AI-powered project recommendations based on user profile
+    const skillSet = userAnswers.skills.join(', ');
+    const experienceLevel = userAnswers.experience;
+    const timeAvailable = userAnswers.timeAvailable;
+    const goals = userAnswers.goals;
+
     const projects = [
-      { name: 'DeFi Trading Platform', match: '94%', budget: '$15,000', duration: '6 weeks' },
-      { name: 'AI-Powered Content Creator', match: '89%', budget: '$8,500', duration: '4 weeks' },
-      { name: 'Mobile Fitness App', match: '87%', budget: '$12,000', duration: '8 weeks' },
-      { name: 'NFT Marketplace', match: '85%', budget: '$20,000', duration: '10 weeks' },
+      { 
+        name: 'SaaS Sales Consultant for AI-powered CRM', 
+        match: 95, 
+        estimatedBudget: '$85,000-120,000', 
+        duration: '8-12 weeks',
+        description: 'Lead sales strategy and client acquisition for cutting-edge AI customer relationship management platform.',
+        fitReason: `Perfect match for your ${skillSet} expertise. Your ${experienceLevel} level experience in sales and AI technology makes you ideal for this high-growth SaaS role.`,
+        requiredSkills: ['Sales Strategy', 'CRM Systems', 'AI Technology', 'Client Relations'],
+        keyResponsibilities: ['Develop go-to-market strategies', 'Manage enterprise client relationships', 'Drive revenue growth', 'Present AI solutions to C-level executives'],
+        whyYouFit: `Your combination of ${skillSet} skills perfectly aligns with this role's requirements. The ${timeAvailable} hours you have available weekly is ideal for managing multiple enterprise accounts.`
+      },
+      { 
+        name: 'Healthcare Sales Representative for Telemedicine Platform', 
+        match: 90, 
+        estimatedBudget: '$75,000-95,000', 
+        duration: '6-8 weeks',
+        description: 'Drive adoption of innovative telemedicine solutions across healthcare networks and medical practices.',
+        fitReason: `Your background in ${skillSet} provides strong foundation for healthcare technology sales. ${experienceLevel} experience level shows you can handle complex medical technology discussions.`,
+        requiredSkills: ['Healthcare Knowledge', 'Technology Sales', 'Relationship Building', 'Compliance Understanding'],
+        keyResponsibilities: ['Target healthcare institutions', 'Demonstrate telemedicine benefits', 'Navigate healthcare compliance', 'Build long-term partnerships'],
+        whyYouFit: `Healthcare sales requires the technical understanding you've demonstrated through ${skillSet}. Your goal of "${goals}" aligns perfectly with the growth trajectory in telehealth.`
+      },
+      { 
+        name: 'NFT Sales and Marketing Strategist', 
+        match: 85, 
+        estimatedBudget: '$65,000-85,000', 
+        duration: '4-6 weeks',
+        description: 'Develop and execute sales strategies for emerging NFT marketplace targeting digital artists and collectors.',
+        fitReason: `Your ${skillSet} skills translate well to the digital asset space. ${experienceLevel} level shows you can adapt to emerging technologies and markets.`,
+        requiredSkills: ['Digital Marketing', 'Blockchain Understanding', 'Community Building', 'Creative Sales'],
+        keyResponsibilities: ['Build artist communities', 'Develop collector relationships', 'Create marketing campaigns', 'Drive platform adoption'],
+        whyYouFit: `The NFT space rewards adaptability and technical understanding - qualities evident in your ${skillSet} background. Your ${timeAvailable} availability allows for the flexible schedule this emerging market requires.`
+      }
     ];
     
-    return projects.slice(0, 3);
+    return projects;
   };
 
   const generateSkillAssessment = () => {
     return userAnswers.skills.map(skill => ({
       skill,
       level: Math.floor(Math.random() * 30) + 70, // 70-100%
-      demand: Math.floor(Math.random() * 20) + 80, // 80-100%
+      marketDemand: Math.floor(Math.random() * 20) + 80, // 80-100%
+      insights: `Strong market demand for ${skill}. Your ${userAnswers.experience} level experience positions you well in this competitive field.`
     }));
   };
 
@@ -128,6 +152,7 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
   };
 
   // Use ElizaOS-generated data or fallback to calculated values
+  
   const insights = {
     weeklyEarnings: portfolioData.earningsProjection?.weekly || calculateWeeklyEarnings(),
     monthlyEarnings: portfolioData.earningsProjection?.monthly || calculateMonthlyEarnings(),
@@ -135,6 +160,9 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
     recommendedProjects: portfolioData.projectRecommendations || generateRecommendedProjects(),
     skillAssessment: portfolioData.skillAssessment || generateSkillAssessment(),
     timeOptimization: portfolioData.earningsProjection?.optimizationTips || generateTimeOptimization(),
+    hasAIRecommendations: portfolioData.projectRecommendations && portfolioData.projectRecommendations.length > 0,
+    hasAISkillAssessment: portfolioData.skillAssessment && portfolioData.skillAssessment.length > 0,
+    hasAIOptimization: portfolioData.earningsProjection?.optimizationTips && portfolioData.earningsProjection.optimizationTips.length > 0,
   };
 
   // Market Analysis function
@@ -189,17 +217,6 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
             </p>
           </div>
           
-          {/* Compatibility Score */}
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.5, type: 'spring' }}
-            className="inline-block bg-gradient-to-r from-green-400 to-blue-500 rounded-full px-8 py-4"
-          >
-            <span className="text-white font-bold text-2xl">
-              {insights.compatibilityScore}% Portfolio Match Score
-            </span>
-          </motion.div>
         </motion.div>
 
         {/* Navigation Tabs */}
@@ -301,27 +318,96 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
               {insights.recommendedProjects.map((project, index) => (
                 <motion.div
                   key={index}
-                  initial={{ opacity: 0, x: -50 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.2 }}
-                  className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20"
+                  className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20 hover:border-white/40 transition-all"
                 >
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-2xl font-bold text-white mb-2">{project.name}</h3>
-                      <div className="flex items-center space-x-4 text-white/80">
-                        <span>💰 Budget: {project.budget}</span>
-                        <span>⏱️ Duration: {project.duration}</span>
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="flex-1">
+                      <h3 className="text-3xl font-bold text-white mb-3">{project.name}</h3>
+                      <p className="text-white/80 text-lg mb-4 leading-relaxed">{project.description}</p>
+                      <div className="flex items-center space-x-6 text-white/70 mb-4">
+                        <span className="flex items-center">
+                          <span className="text-2xl mr-2">💰</span>
+                          Budget: {project.estimatedBudget}
+                        </span>
+                        <span className="flex items-center">
+                          <span className="text-2xl mr-2">⏱️</span>
+                          Duration: {project.duration}
+                        </span>
                       </div>
                     </div>
-                    <div className="bg-green-500 text-white px-4 py-2 rounded-full font-bold">
-                      {project.match} Match
+                    <div className="bg-gradient-to-r from-green-400 to-emerald-500 text-white px-6 py-3 rounded-full font-bold text-xl ml-6">
+                      {project.match}% Match
                     </div>
                   </div>
                   
-                  <button className="bg-white text-purple-600 px-6 py-3 rounded-2xl font-semibold hover:bg-white/90 transition-all">
-                    Apply Now
-                  </button>
+                  {/* Why You're Perfect Section */}
+                  <div className="bg-blue-500/10 rounded-2xl p-6 mb-6 border border-blue-400/20">
+                    <h4 className="text-blue-300 font-bold text-lg mb-3 flex items-center">
+                      <span className="text-2xl mr-2">🎯</span>
+                      Why You're Perfect for This Role
+                    </h4>
+                    <p className="text-white/90 leading-relaxed">{(project as any).whyYouFit || 'AI analysis shows strong alignment with your portfolio and experience level.'}</p>
+                  </div>
+
+                  {/* Required Skills */}
+                  <div className="mb-6">
+                    <h4 className="text-white font-bold text-lg mb-3 flex items-center">
+                      <span className="text-2xl mr-2">🔧</span>
+                      Required Skills
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {((project as any).requiredSkills || ['Sales', 'Communication', 'Technology']).map((skill: string, skillIndex: number) => (
+                        <span 
+                          key={skillIndex}
+                          className="bg-purple-500/20 text-purple-200 px-4 py-2 rounded-full text-sm font-medium border border-purple-400/30"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Key Responsibilities */}
+                  <div className="mb-6">
+                    <h4 className="text-white font-bold text-lg mb-3 flex items-center">
+                      <span className="text-2xl mr-2">📋</span>
+                      Key Responsibilities
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {((project as any).keyResponsibilities || ['Drive sales growth', 'Manage client relationships', 'Present solutions', 'Meet targets']).map((responsibility: string, respIndex: number) => (
+                        <div 
+                          key={respIndex}
+                          className="flex items-center text-white/80"
+                        >
+                          <span className="text-green-400 mr-3">•</span>
+                          {responsibility}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Fit Reason */}
+                  <div className="bg-green-500/10 rounded-2xl p-6 mb-6 border border-green-400/20">
+                    <h4 className="text-green-300 font-bold text-lg mb-3 flex items-center">
+                      <span className="text-2xl mr-2">✨</span>
+                      AI Analysis: Portfolio Fit
+                    </h4>
+                    <p className="text-white/90 leading-relaxed">{(project as any).fitReason || `Your skills and experience level make you an excellent candidate for this position. AI analysis indicates strong portfolio alignment.`}</p>
+                  </div>
+                  
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full bg-gradient-to-r from-white to-gray-100 text-purple-600 px-8 py-4 rounded-2xl font-bold text-lg hover:from-gray-100 hover:to-white transition-all shadow-lg"
+                  >
+                    <span className="flex items-center justify-center">
+                      <span className="mr-2">🚀</span>
+                      Apply Now - {project.match}% Match
+                    </span>
+                  </motion.button>
                 </motion.div>
               ))}
             </div>
@@ -375,12 +461,12 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
                       <div>
                         <div className="flex justify-between text-white/80 mb-1">
                           <span>Market Demand</span>
-                          <span>{skillData.demand}%</span>
+                          <span>{skillData.marketDemand}%</span>
                         </div>
                         <div className="w-full bg-white/20 rounded-full h-2">
                           <motion.div
                             initial={{ width: 0 }}
-                            animate={{ width: `${skillData.demand}%` }}
+                            animate={{ width: `${skillData.marketDemand}%` }}
                             transition={{ delay: 0.7 + index * 0.1, duration: 1 }}
                             className="bg-gradient-to-r from-green-400 to-yellow-500 h-2 rounded-full"
                           />
@@ -523,45 +609,73 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
                         <div>
                           <h4 className="text-lg font-semibold text-green-400 mb-3">Short Term (1-3 months)</h4>
                           <ul className="space-y-2">
-                            {marketAnalysis.recommendations.shortTerm.map((rec, idx) => (
-                              <li key={idx} className="text-white flex items-start">
-                                <span className="text-green-400 mr-2">•</span>
-                                {rec}
-                              </li>
-                            ))}
+                            {Array.isArray(marketAnalysis.recommendations.shortTerm) ? 
+                              marketAnalysis.recommendations.shortTerm.map((rec, idx) => (
+                                <li key={idx} className="text-white flex items-start">
+                                  <span className="text-green-400 mr-2">•</span>
+                                  {rec}
+                                </li>
+                              )) : (
+                                <li className="text-white flex items-start">
+                                  <span className="text-green-400 mr-2">•</span>
+                                  {marketAnalysis.recommendations.shortTerm}
+                                </li>
+                              )
+                            }
                           </ul>
                         </div>
                         <div>
                           <h4 className="text-lg font-semibold text-blue-400 mb-3">Medium Term (3-6 months)</h4>
                           <ul className="space-y-2">
-                            {marketAnalysis.recommendations.mediumTerm.map((rec, idx) => (
-                              <li key={idx} className="text-white flex items-start">
-                                <span className="text-blue-400 mr-2">•</span>
-                                {rec}
-                              </li>
-                            ))}
+                            {Array.isArray(marketAnalysis.recommendations.mediumTerm) ? 
+                              marketAnalysis.recommendations.mediumTerm.map((rec, idx) => (
+                                <li key={idx} className="text-white flex items-start">
+                                  <span className="text-blue-400 mr-2">•</span>
+                                  {rec}
+                                </li>
+                              )) : (
+                                <li className="text-white flex items-start">
+                                  <span className="text-blue-400 mr-2">•</span>
+                                  {marketAnalysis.recommendations.mediumTerm}
+                                </li>
+                              )
+                            }
                           </ul>
                         </div>
                         <div>
                           <h4 className="text-lg font-semibold text-purple-400 mb-3">Long Term (6-12 months)</h4>
                           <ul className="space-y-2">
-                            {marketAnalysis.recommendations.longTerm.map((rec, idx) => (
-                              <li key={idx} className="text-white flex items-start">
-                                <span className="text-purple-400 mr-2">•</span>
-                                {rec}
-                              </li>
-                            ))}
+                            {Array.isArray(marketAnalysis.recommendations.longTerm) ? 
+                              marketAnalysis.recommendations.longTerm.map((rec, idx) => (
+                                <li key={idx} className="text-white flex items-start">
+                                  <span className="text-purple-400 mr-2">•</span>
+                                  {rec}
+                                </li>
+                              )) : (
+                                <li className="text-white flex items-start">
+                                  <span className="text-purple-400 mr-2">•</span>
+                                  {marketAnalysis.recommendations.longTerm}
+                                </li>
+                              )
+                            }
                           </ul>
                         </div>
                         <div>
                           <h4 className="text-lg font-semibold text-yellow-400 mb-3">Rate Optimization</h4>
                           <ul className="space-y-2">
-                            {marketAnalysis.recommendations.rateOptimization.map((rec, idx) => (
-                              <li key={idx} className="text-white flex items-start">
-                                <span className="text-yellow-400 mr-2">•</span>
-                                {rec}
-                              </li>
-                            ))}
+                            {Array.isArray(marketAnalysis.recommendations.rateOptimization) ? 
+                              marketAnalysis.recommendations.rateOptimization.map((rec, idx) => (
+                                <li key={idx} className="text-white flex items-start">
+                                  <span className="text-yellow-400 mr-2">•</span>
+                                  {rec}
+                                </li>
+                              )) : (
+                                <li className="text-white flex items-start">
+                                  <span className="text-yellow-400 mr-2">•</span>
+                                  {marketAnalysis.recommendations.rateOptimization}
+                                </li>
+                              )
+                            }
                           </ul>
                         </div>
                       </div>
@@ -600,11 +714,11 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
 
                     {marketAnalysis.chainlinkData && (
                       <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20">
-                        <h3 className="text-2xl font-bold text-white mb-4">⛓️ Chainlink Data</h3>
+                        <h3 className="text-2xl font-bold text-white mb-4">⛓️ Chainlink Functions Data</h3>
                         <div className="text-green-400 text-sm mb-4">
-                          🤖 Real-time data from GetSkillPrice.sol contract
+                          Chainlink Functions return:
                         </div>
-                        <pre className="bg-black/20 rounded-xl p-4 text-white text-sm overflow-x-auto">
+                        <pre className="bg-black/20 rounded-xl p-4 text-white text-sm overflow-x-auto whitespace-pre-wrap">
                           {JSON.stringify(marketAnalysis.chainlinkData, null, 2)}
                         </pre>
                       </div>
