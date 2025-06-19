@@ -33,12 +33,9 @@ export default function Home() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [showChainWarning, setShowChainWarning] = useState(false);
   const [selectedTokenSuggestion, setSelectedTokenSuggestion] = useState<TokenSuggestion | null>(null);
-<<<<<<< Updated upstream
   const [isProcessingTransaction, setIsProcessingTransaction] = useState(false);
-=======
   const [kycVerified, setKycVerified] = useState(false);
   const [kycResult, setKycResult] = useState<KYCResult | null>(null);
->>>>>>> Stashed changes
 
   // Initialize app state from localStorage on mount
   useEffect(() => {
