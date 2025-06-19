@@ -101,7 +101,7 @@ async function uploadSecretsFixed() {
             uploadTimestamp: new Date().toISOString(),
             gatewayUrls: gatewayUrls,
             success: true,
-            contractAddress: "0xF11d5cEEdDeAd319c1C6b2B4Adf64Ea34DD72e39",
+            contractAddress: "0x6A6bA96334C5D3eee67b98323942ae3D5c3e15C1",
             subscriptionId: "15603"
         };
 
