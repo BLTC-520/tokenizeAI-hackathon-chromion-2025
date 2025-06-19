@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useChainId } from 'wagmi';
-import Questionnaire from './components/Questionnaire';
+import ImprovedQuestionnaire from './components/ImprovedQuestionnaire';
 import ProcessingState from './components/ProcessingState';
 import Portfolio from './components/Portfolio';
 import StorageDebug from './components/StorageDebug';
 import ChainSwitcher from './components/ChainSwitcher';
+import ScrollableLanding from './components/ScrollableLanding';
 import { PortfolioData } from './services/elizaAgent';
 import TokenizationModeSelector from './components/TokenizationModeSelector';
 import TokenCreation from './components/TokenCreation';
@@ -244,94 +245,23 @@ export default function Home() {
       )}
 
       {currentAppState === 'landing' && (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center space-y-8 px-8">
-            <h1 className="text-6xl md:text-8xl font-bold text-black animate-fade-in">
-              Your time, Your token
-            </h1>
-            
-            <div className="space-y-6">
-              {!isConnected ? (
-                <div className="space-y-4 animate-slide-up">
-                  <p className="text-gray-700 text-xl md:text-2xl">
-                    Start tokenizing your time and unlock the value of every moment
-                  </p>
-                  <ConnectButton.Custom>
-                    {({
-                      account,
-                      chain,
-                      openAccountModal,
-                      openChainModal,
-                      openConnectModal,
-                      mounted,
-                    }) => {
-                      const ready = mounted;
-                      const connected = ready && account && chain;
-
-                      return (
-                        <div
-                          {...(!ready && {
-                            'aria-hidden': true,
-                            'style': {
-                              opacity: 0,
-                              pointerEvents: 'none',
-                              userSelect: 'none',
-                            },
-                          })}
-                        >
-                          {(() => {
-                            if (!connected) {
-                              return (
-                                <button
-                                  onClick={openConnectModal}
-                                  className="bg-black text-white px-12 py-4 rounded-lg text-xl font-semibold hover:bg-gray-800 transition-all duration-300 transform hover:scale-105 border"
-                                >
-                                  Start tokenizing your time!
-                                </button>
-                              );
-                            }
-
-                            if (chain.unsupported) {
-                              return (
-                                <button
-                                  onClick={openChainModal}
-                                  className="bg-red-600 border border-red-700 text-white px-8 py-3 rounded-lg font-medium hover:bg-red-700 transition-all duration-300"
-                                >
-                                  Wrong network
-                                </button>
-                              );
-                            }
-
-                            return (
-                              <div className="flex gap-4 justify-center flex-wrap">
-                                <ChainSwitcher className="order-1" />
-                                
-                                <button
-                                  onClick={openAccountModal}
-                                  className="bg-gray-100 border border-gray-300 text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-200 transition-all duration-300 order-2"
-                                >
-                                  {account.displayName}
-                                  {account.displayBalance
-                                    ? ` (${account.displayBalance})`
-                                    : ''}
-                                </button>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      );
-                    }}
-                  </ConnectButton.Custom>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
+        <ScrollableLanding 
+          onGetStarted={() => {
+            // Trigger state transition based on stored data
+            if (portfolioData) {
+              storage.appState.updateAppState('portfolio');
+            } else if (userAnswers) {
+              storage.appState.updateAppState('processing');
+            } else {
+              storage.appState.updateAppState('questionnaire');
+            }
+          }}
+        />
       )}
 
       {currentAppState === 'questionnaire' && (
         <div className="pt-20">
-          <Questionnaire onComplete={handleQuestionnaireComplete} />
+          <ImprovedQuestionnaire onComplete={handleQuestionnaireComplete} />
         </div>
       )}
 
