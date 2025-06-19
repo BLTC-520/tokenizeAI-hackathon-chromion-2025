@@ -30,8 +30,7 @@ export class ErrorBoundary extends Component<Props, State> {
     // Log error using our error handling system
     handleError(error, {
       component: this.props.componentName || 'ErrorBoundary',
-      action: 'component_render',
-      details: errorInfo
+      action: 'component_render'
     });
 
     this.setState({
@@ -114,7 +113,7 @@ export function withErrorBoundary<P extends object>(
 ) {
   const WrappedComponent = React.forwardRef<any, P>((props, ref) => (
     <ErrorBoundary componentName={componentName || Component.displayName || Component.name}>
-      <Component {...props} ref={ref} />
+      <Component {...(props as P)}/>
     </ErrorBoundary>
   ));
 

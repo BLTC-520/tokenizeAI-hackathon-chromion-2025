@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TokenizeAgent, TokenizationPlan, TokenSuggestion } from '../services/tokenizeAgent';
+import { TokenizeAgent, type TokenizationPlan, TokenSuggestion } from '../services/tokenizeAgent';
 import { PortfolioData } from '../services/elizaAgent';
 import { UserAnswers } from '../utils/localStorage';
 import { useTimeTokenizerStorage } from '../hooks/useLocalStorage';
@@ -37,7 +37,7 @@ export default function TokenizationPlan({
 
       // Get Gemini API key from environment variables or session
       const sessionData = storage.session.sessionData;
-      const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || sessionData?.geminiApiKey || '';
+      const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
       
       console.log('🔑 API Key check:', {
         envKey: !!process.env.NEXT_PUBLIC_GEMINI_API_KEY,
@@ -107,10 +107,13 @@ export default function TokenizationPlan({
     setSelectedSuggestion(suggestion.id);
     storage.tokenDrafts.saveDraft({
       id: Date.now().toString(),
-      suggestion,
-      customizations: {},
+      serviceName: suggestion.serviceName,
+      pricePerHour: suggestion.suggestedPricePerHour,
+      totalHours: suggestion.suggestedTotalHours,
+      validityDays: suggestion.suggestedValidityDays,
+      description: suggestion.description,
       createdAt: Date.now(),
-      status: 'draft'
+      status: 'draft',
     });
   };
 

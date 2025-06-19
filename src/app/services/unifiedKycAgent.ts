@@ -16,7 +16,7 @@ import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { avalancheFuji } from 'viem/chains';
 import { writeContract, readContract, waitForTransactionReceipt } from '@wagmi/core';
 import { config } from '../lib/wagmi';
-import { KYC_CONTRACT_ADDRESS, CHAINLINK_CONFIG } from '../../../constants';
+import { KYC_CONTRACT_ADDRESS, CHAINLINK_CONFIG } from '../shared/constants';
 
 // Types
 export interface KYCResult {
@@ -63,6 +63,13 @@ export class UnifiedKYCAgent {
         this.subscriptionId = CHAINLINK_CONFIG.SUBSCRIPTION_ID;
         this.donHostedSecretsSlotID = CHAINLINK_CONFIG.DON_HOSTED_SECRETS_SLOT_ID;
         this.donHostedSecretsVersion = CHAINLINK_CONFIG.DON_HOSTED_SECRETS_VERSION;
+
+        console.log('🏗️ KYC Agent Configuration:', {
+            contractAddress: this.contractAddress,
+            subscriptionId: this.subscriptionId,
+            secretsSlotID: this.donHostedSecretsSlotID,
+            secretsVersion: this.donHostedSecretsVersion
+        });
 
         this.setupClients();
     }
@@ -362,6 +369,17 @@ export class UnifiedKYCAgent {
             ];
 
             // Call the smart contract using wagmi
+            console.log('📤 Calling writeContract with parameters:', {
+                address: this.contractAddress,
+                functionName: 'requestKYCVerification',
+                args: [
+                    walletAddress,
+                    this.donHostedSecretsSlotID,
+                    this.donHostedSecretsVersion,
+                    this.subscriptionId
+                ]
+            });
+
             const txHash = await writeContract(config, {
                 address: this.contractAddress,
                 abi: kycABI,

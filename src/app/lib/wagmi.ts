@@ -43,7 +43,7 @@ export const supportedChains = [
   polygon,
   optimism,
   arbitrum,
-];
+] as const;
 
 // Contract address mapping by chain ID
 export const getContractAddress = (chainId: number): string => {
@@ -102,7 +102,4 @@ export const config = getDefaultConfig({
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'b76a362849ddcf14e3d326135eed54fe',
   chains: supportedChains,
   ssr: false,
-  enableWalletConnect: true,
-  enableInjected: true,
-  enableCoinbase: true,
 });

@@ -116,7 +116,7 @@ export class ParameterValidationService {
         required: true,
         currentValue: params.serviceName,
         prompt: 'What service will you provide? (e.g., "Frontend Development", "Business Consulting")',
-        validation: (value: string) => value && value.trim().length > 0 && value.length <= 100
+        validation: (value: string) => Boolean(value && value.trim().length > 0 && value.length <= 100)
       });
     }
 
