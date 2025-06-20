@@ -9,6 +9,7 @@ import { config } from '../lib/wagmi';
 import { getAlertAgent } from './alertAgent';
 import { handleError } from '../utils/errorHandling';
 import { validateTokenCreation, validateWallet } from '../utils/validation';
+import { getPriceService } from './priceService';
 
 export interface TimeToken {
   tokenId: string;
@@ -45,11 +46,13 @@ export interface ContractTransaction {
 
 export class ContractService {
   private alertAgent = getAlertAgent();
+  private priceService = getPriceService();
 
   // Create a new time token
   async createTimeToken(params: TokenCreationParams): Promise<{ hash: string; tokenId?: string }> {
     try {
       console.log('🚀 Creating time token:', params);
+
 
       // Validate input parameters
       const validation = validateTokenCreation(params);
@@ -73,8 +76,20 @@ export class ContractService {
       const contractAddress = getContractAddress(chainId);
       console.log('📍 Using contract:', contractAddress, 'on chain:', chainId);
 
-      // Convert price from USD to wei (assuming 1 USD = 1 wei for simplicity in testnet)
-      const pricePerHourWei = parseUnits(params.pricePerHour.toString(), 18);
+      // Convert USD price to native crypto (AVAX/ETH) using Chainlink Price Feeds
+      console.log('💱 Converting USD to native currency:', {
+        usdAmount: params.pricePerHour,
+        chainId,
+        currency: this.priceService.getCurrentCurrencyInfo(chainId).symbol
+      });
+      
+      const pricePerHourWei = await this.priceService.convertUSDToCrypto(params.pricePerHour, chainId);
+      
+      console.log('✅ Price conversion complete:', {
+        originalUSD: `$${params.pricePerHour}`,
+        convertedAmount: formatEther(pricePerHourWei),
+        currency: this.priceService.getCurrentCurrencyInfo(chainId).symbol
+      });
       
       // Call the smart contract
       const hash = await writeContract(config, {
@@ -161,6 +176,7 @@ export class ContractService {
     try {
       console.log('💰 Purchasing time token:', params);
 
+
       const account = getAccount(config);
       const chainId = getChainId(config);
       
@@ -169,6 +185,33 @@ export class ContractService {
       }
 
       const contractAddress = getContractAddress(chainId);
+      console.log('📍 Contract details:', {
+        address: contractAddress,
+        chainId,
+        buyer: account.address
+      });
+
+      // Validate token ID
+      if (!params.tokenId || params.tokenId === '0') {
+        throw new Error('Invalid token ID');
+      }
+
+      // Validate hours amount
+      if (params.hoursAmount <= 0) {
+        throw new Error('Hours amount must be greater than 0');
+      }
+
+      // Validate total price
+      if (!params.totalPrice || params.totalPrice <= BigInt(0)) {
+        throw new Error('Invalid total price');
+      }
+
+      console.log('🔧 Transaction parameters:', {
+        tokenId: params.tokenId,
+        hoursAmount: params.hoursAmount,
+        totalPriceETH: formatEther(params.totalPrice),
+        totalPriceWei: params.totalPrice.toString()
+      });
 
       const hash = await writeContract(config, {
         address: contractAddress as `0x${string}`,
@@ -189,7 +232,10 @@ export class ContractService {
         title: '⏳ Purchase Pending',
         message: `Purchasing ${params.hoursAmount}h of service...`,
         priority: 'medium',
-        metadata: { transactionHash: hash }
+        metadata: { 
+          tokenId: params.tokenId,
+          chainId
+        }
       });
 
       // Wait for confirmation
@@ -214,6 +260,15 @@ export class ContractService {
 
     } catch (error) {
       console.error('❌ Failed to purchase time token:', error);
+      
+      // Enhanced error logging
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
+      }
       
       this.alertAgent.addNotification({
         type: 'system',
@@ -321,6 +376,7 @@ export class ContractService {
   // Get current token ID
   async getCurrentTokenId(): Promise<bigint> {
     try {
+      
       const chainId = getChainId(config);
       const contractAddress = getContractAddress(chainId);
 
@@ -340,6 +396,7 @@ export class ContractService {
   // Get time token details
   async getTimeToken(tokenId: string): Promise<TimeToken | null> {
     try {
+      
       const chainId = getChainId(config);
       const contractAddress = getContractAddress(chainId);
 
@@ -480,8 +537,13 @@ export class ContractService {
     return now > validUntil;
   }
 
-  // Format price for display
-  formatPrice(priceWei: bigint): string {
+  // Format price for display with both crypto and USD
+  async formatPrice(priceWei: bigint, chainId?: number) {
+    return await this.priceService.formatPrice(priceWei, chainId);
+  }
+
+  // Format price for display (legacy method for backward compatibility)
+  formatPriceSimple(priceWei: bigint): string {
     return formatEther(priceWei);
   }
 

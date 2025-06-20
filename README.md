@@ -1,115 +1,52 @@
-# Time Tokenizer - AI-Powered Time Portfolio & Blockchain Tokenization
+# Time Tokenizer
 
-A Next.js application that transforms your skills and time into tradeable blockchain tokens using **multi-agent AI system** and comprehensive Web3 integration.
+AI-powered platform that transforms skills into tradeable blockchain tokens using Chainlink Functions and Google Gemini.
 
-## 🤖 Multi-Agent AI Architecture
+## Key Features
 
-This project features a sophisticated **three-agent ElizaOS-inspired system**:
+- **Chainlink Functions Integration** - Decentralized skill market data fetching and KYC verification
+- **Google Gemini Agents** - AI-powered portfolio analysis and tokenization strategies  
+- **Smart Contract Tokenization** - ERC-1155 time tokens with automated pricing
+- **KYC-Gated Access** - Soulbound NFT verification system via Chainlink oracles
 
-### 1. Portfolio Maker Agent (`elizaAgent.ts`)
-- **AI Model**: Google Gemini 1.5 Flash for portfolio analysis
-- **Character**: Expert freelance market analyst with Web3 expertise
-- **Function**: Generates comprehensive skill assessments and project recommendations
-- **Fallback**: Smart offline portfolio generation system
+## Architecture
 
-### 2. Tokenize Agent (`tokenizeAgent.ts`)
-- **AI Model**: Google Gemini 1.5 Flash for tokenization strategy
-- **Character**: Blockchain tokenization specialist
-- **Function**: Analyzes portfolios to create optimal token strategies
-- **Output**: Structured token suggestions with market analysis
+### Chainlink Functions Implementation
+- **GetSkillPrice.sol** - Fetches skill pricing data from Supabase via DON
+- **GetWalletKYC.sol** - Verifies KYC status and mints access NFTs
+- **DON Integration** - Avalanche Fuji testnet (`fun-avalanche-fuji-1`)
+- **Decentralized Data** - No centralized API dependencies in production
 
-### 3. Alert Agent (`alertAgent.ts`)
-- **Function**: Real-time notification system for blockchain transactions
-- **Features**: Browser notifications, transaction status tracking
-- **Integration**: SSR-safe implementation with client-side guards
+### Google Gemini AI Agents
+- **Portfolio Agent** - Analyzes user skills and generates market insights
+- **Tokenization Agent** - Creates optimal token strategies based on market data
+- **Alert Agent** - Real-time transaction notifications and updates
 
-## 🚀 Complete Feature Set
+### Smart Contract Architecture
+```solidity
+// Chainlink Functions for market data
+function sendRequest() external returns (bytes32 requestId) {
+    FunctionsRequest.Request memory req;
+    req.initializeRequestForInlineJavaScript(source);
+    return _sendRequest(req.encodeCBOR(), subscriptionId, gasLimit, donID);
+}
 
-### 🎨 Modern UI/UX Design
-- **Theme**: Purple-to-blue gradient with glassmorphism effects
-- **Animations**: Smooth Framer Motion transitions and micro-interactions
-- **Navigation**: Persistent header with progress tracking across all phases
-- **Responsive**: Mobile-first design that adapts to all screen sizes
-- **Typography**: Inter font with optimized readability
+// KYC verification with NFT minting
+function requestKYCVerification() external {
+    // Query Supabase via Chainlink Functions
+    // Mint soulbound KYC NFT on verification
+}
+```
 
-### 🔗 Advanced Web3 Integration
-- **Wallets**: RainbowKit with full wallet ecosystem support
-- **Chains**: Multi-chain support (Avalanche Fuji primary, Ethereum Sepolia, Base Sepolia)
-- **Contracts**: ERC-1155 Time Token smart contracts
-- **State**: Wagmi + Viem for robust blockchain state management
-
-### 📋 Intelligent Questionnaire System
-- **Steps**: 7-step interactive questionnaire with keyboard navigation
-- **Features**: Auto-save, progress tracking, skill categorization
-- **Validation**: Real-time input validation with helpful feedback
-- **Storage**: Persistent localStorage with session restoration
-
-### 🤖 Real AI Processing Pipeline
-- **Live Processing**: Actual AI model execution with visual feedback
-- **Error Handling**: Comprehensive fallback systems
-- **Rate Limiting**: Intelligent API usage optimization
-- **Transparency**: Clear indicators of AI vs fallback generation
-
-### 📊 Comprehensive Portfolio Analysis
-- **Sections**: Overview, Projects, Skills, Earnings tabs
-- **Insights**: AI-generated market analysis and optimization tips
-- **Scoring**: Compatibility scores and skill assessments
-- **Projections**: Weekly, monthly, and yearly earnings estimates
-
-### 🎯 Advanced Tokenization Features
-- **Agentic Mode**: AI-powered token strategy planning
-- **Bundle Selection**: Multi-token package creation
-- **Parameter Review**: Detailed token configuration with validation
-- **Smart Contracts**: Automated token minting on blockchain
-
-### 🏪 Marketplace & Dashboard
-- **Token Browsing**: Comprehensive marketplace with filtering
-- **Portfolio Tracking**: Personal dashboard with analytics
-- **Transaction History**: Complete audit trail of all activities
-- **Performance Metrics**: Token performance and earnings tracking
-
-## 🛠 Tech Stack
-
-### Frontend
-- **Framework**: Next.js 15 with App Router
-- **Language**: TypeScript for type safety
-- **Styling**: Tailwind CSS with custom design system
-- **Animations**: Framer Motion for smooth interactions
-- **State**: Custom localStorage hooks with SSR safety
-
-### Web3 Infrastructure
-- **Wallet**: RainbowKit + Wagmi for wallet connectivity
-- **Blockchain**: Viem for low-level blockchain interactions
-- **Contracts**: ERC-1155 multi-token standard
-- **Networks**: Multi-chain deployment architecture
-
-### AI Integration
-- **Models**: Google Gemini 1.5 Flash via REST API
-- **Architecture**: Multi-agent system with specialized roles
-- **Fallbacks**: Intelligent offline generation capabilities
-- **Safety**: Rate limiting and error handling
-
-### Development Tools
-- **Package Manager**: npm with optimized dependencies
-- **Linting**: ESLint + TypeScript for code quality
-- **Build**: Next.js with Turbopack for fast development
-- **Deployment**: Optimized for production environments
-
-## 🔧 Setup & Installation
+## Installation
 
 ### Prerequisites
 ```bash
-# Required
-Node.js 18+ 
+Node.js 18+
 npm or yarn
-
-# API Keys needed
-Google Gemini API Key
-WalletConnect Project ID
 ```
 
-### Environment Configuration
-Create `.env.local` with:
+### Environment Setup
 ```bash
 # AI Configuration
 NEXT_PUBLIC_GEMINI_API_KEY=your-gemini-api-key
@@ -117,143 +54,95 @@ NEXT_PUBLIC_GEMINI_API_KEY=your-gemini-api-key
 # Web3 Configuration  
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your-walletconnect-id
 
-# Blockchain RPC Endpoints
-AVALANCHE_FUJI_RPC=your-avalanche-rpc
-SEPOLIA_ETH_RPC=your-ethereum-rpc
-SEPOLIA_BASE_RPC=your-base-rpc
-
-# Development (optional)
-PRIVATE_KEY=your-private-key-for-testing
+# Chainlink Functions
+CHAINLINK_SUBSCRIPTION_ID=15603
+CHAINLINK_SECRETS_SLOT_ID=0
+CHAINLINK_SECRETS_VERSION=1750362435
 ```
 
-### Installation Steps
+### Quick Start
 ```bash
-# Clone repository
 git clone <repository-url>
 cd time-tokenizer
-
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
 ```
 
-### Build Commands
-```bash
-# Development
-npm run dev          # Start dev server (typically port 3001)
+## User Flow
 
-# Production
-npm run build        # Create optimized build
-npm run start        # Start production server
+1. **Connect Wallet** - RainbowKit integration with multi-chain support
+2. **KYC Verification** - Chainlink Functions verify identity via Supabase
+3. **Skill Assessment** - Google Gemini analyzes expertise and market demand
+4. **Token Strategy** - AI generates optimal tokenization recommendations
+5. **Smart Contract Deployment** - Automated ERC-1155 token creation
+6. **Marketplace** - Trade tokens with real-time Chainlink pricing data
 
-# Code Quality
-npm run lint         # Run ESLint checks
+## Technical Highlights
+
+### Chainlink Functions Usage
+- **Subscription ID**: 15603 (Avalanche Fuji)
+- **DON Secrets**: Encrypted Supabase credentials stored on-chain
+- **Gas Optimization**: 300k callback limit with efficient data parsing
+- **Error Handling**: Comprehensive fallback systems for oracle failures
+
+### Google Gemini Integration
+- **Model**: Gemini 1.5 Flash for portfolio analysis
+- **Structured Output**: JSON-validated AI responses
+- **Rate Limiting**: Intelligent API usage optimization
+- **Fallback System**: Offline generation when API unavailable
+
+### Security Features
+- **Soulbound KYC NFTs** - Non-transferable access tokens
+- **Input Validation** - Comprehensive data sanitization
+- **Rate Limiting** - API abuse prevention
+- **Error Boundaries** - Graceful failure handling
+
+## Smart Contracts
+
+### Deployed Contracts (Avalanche Fuji)
+- **GetSkillPrice**: Market data oracle
+- **GetWalletKYC**: KYC verification and NFT minting
+- **TimeToken**: ERC-1155 time tokenization contract
+
+### Chainlink Configuration
+```javascript
+const CHAINLINK_CONFIG = {
+  DON_ID: 'fun-avalanche-fuji-1',
+  ROUTER: '0xA9d587a00A31A52Ed70D6026794a8FC5E2F5dCb0',
+  SUBSCRIPTION_ID: 15603,
+  GAS_LIMIT: 500000
+}
 ```
 
-## 🎯 Complete User Journey
+## Tech Stack
 
-### 1. **Landing Page**
-- Modern gradient design with animated elements
-- Wallet connection via RainbowKit
-- Chain validation and switching assistance
-- Session restoration for returning users
+- **Frontend**: Next.js 15, TypeScript, Tailwind CSS, Framer Motion
+- **Web3**: Wagmi, Viem, RainbowKit, Ethers.js
+- **AI**: Google Gemini 1.5 Flash API
+- **Blockchain**: Chainlink Functions, ERC-1155, Avalanche
+- **Database**: Supabase (accessed via Chainlink Functions)
 
-### 2. **Questionnaire Phase**
-- **Personal Info**: Name and experience level
-- **Skills**: Multi-select from categorized options
-- **Availability**: Time commitment and scheduling
-- **Goals**: Career objectives and target earnings
-- **Projects**: Preferred project types and industries
-- **Rate**: Hourly rate expectations
-- **Review**: Final confirmation of all inputs
+## Demo
 
-### 3. **AI Processing Phase**
-- Real-time AI agent execution with visual feedback
-- Portfolio generation using Gemini AI
-- Skill analysis and market demand assessment
-- Project recommendations with match scoring
-- Earnings projections and optimization strategies
+Access the live application at `http://localhost:3001` after setup.
 
-### 4. **Portfolio Presentation**
-- **Overview**: Profile summary and key metrics
-- **Projects**: AI-curated project recommendations
-- **Skills**: Detailed skill assessment with market demand
-- **Earnings**: Financial projections and optimization tips
+### Key Demo Features
+- Real Chainlink Functions data fetching
+- Live Google Gemini AI processing
+- Smart contract token creation
+- KYC verification with NFT minting
+- Multi-chain marketplace functionality
 
-### 5. **Tokenization Phase (Agentic Mode)**
-- AI-powered tokenization strategy planning
-- Multiple token suggestions with reasoning
-- Bundle creation for complementary services
-- Parameter optimization and validation
+## Hackathon Differentiators
 
-### 6. **Token Creation**
-- Smart contract parameter review
-- Gas estimation and cost calculation
-- Blockchain transaction execution
-- Real-time transaction progress tracking
-
-### 7. **Marketplace & Dashboard**
-- Browse created and available tokens
-- Portfolio performance analytics
-- Transaction history and earnings tracking
-- Advanced filtering and search capabilities
-
-## 🌟 Key Technical Innovations
-
-### AI Architecture
-- **Multi-Agent System**: Specialized agents for different tasks
-- **Structured Output**: JSON-formatted AI responses with validation
-- **Fallback Intelligence**: Smart offline capabilities when API unavailable
-- **Rate Optimization**: Intelligent API usage with caching
-
-### Blockchain Integration
-- **Multi-Chain Support**: Seamless operation across multiple networks
-- **Smart Contract Safety**: Comprehensive parameter validation
-- **Transaction Handling**: Robust error handling and retry logic
-- **Gas Optimization**: Intelligent gas estimation and fee management
-
-### User Experience
-- **Progressive Navigation**: Clear progress indication across all phases
-- **State Persistence**: Complete session restoration capabilities
-- **Error Recovery**: Comprehensive error boundaries and fallbacks
-- **Performance**: Optimized loading and smooth transitions
-
-### Code Quality
-- **TypeScript**: Full type safety throughout the application
-- **Modular Architecture**: Clean separation of concerns
-- **Testing Ready**: Structured for easy test implementation
-- **Documentation**: Comprehensive inline and external documentation
-
-## 🔒 Security & Reliability
-
-- **Input Validation**: Comprehensive validation at all entry points
-- **Error Boundaries**: React error boundaries for graceful failures
-- **Rate Limiting**: AI API usage optimization and protection
-- **Wallet Security**: Industry-standard wallet integration practices
-- **Data Privacy**: No sensitive data storage, session-only persistence
-
-## 🚀 Deployment
-
-The application is optimized for deployment on:
-- **Vercel**: Native Next.js optimization
-- **Netlify**: Static site generation support  
-- **Custom Servers**: Docker containerization ready
-- **CDN**: Optimized asset delivery
-
-## 📈 Performance Features
-
-- **Code Splitting**: Automatic route-based code splitting
-- **Image Optimization**: Next.js automatic image optimization
-- **Caching**: Intelligent API response caching
-- **Lazy Loading**: Component-based lazy loading
-- **Bundle Analysis**: Optimized bundle size management
+1. **Full Chainlink Functions Integration** - Not just price feeds, but custom data fetching and KYC verification
+2. **Multi-Agent AI System** - Three specialized Google Gemini agents working in coordination
+3. **Decentralized KYC** - Soulbound NFTs for access control via Chainlink oracles
+4. **Production-Ready Architecture** - Comprehensive error handling, rate limiting, and security measures
+5. **Real Market Application** - Practical time tokenization with actual economic utility
 
 ---
 
-*Transform your time into tradeable digital assets with AI-powered precision* 🚀
+**Built for TokenizeAI Hackathon** - Showcasing advanced Chainlink Functions integration with Google Gemini AI
 
-**Live Demo**: `http://localhost:3001` (development server)
-
-Built with ❤️ using Next.js, TypeScript, and cutting-edge AI technology.
+🔗 **Chainlink Functions** | 🤖 **Google Gemini** | ⛓️ **Multi-Chain** | 🎯 **Production-Ready**

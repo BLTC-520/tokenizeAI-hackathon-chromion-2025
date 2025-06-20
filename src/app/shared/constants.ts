@@ -71,6 +71,22 @@ export const CHAINLINK_CONFIG = {
 	REQUEST_TIMEOUT: 60000
 } as const;
 
+// ===== CHAINLINK PRICE FEEDS =====
+export const CHAINLINK_PRICE_FEEDS = {
+	// AVAX/USD Price Feed on Avalanche Fuji Testnet
+	[AVALANCHE_FUJI_CHAIN_ID]: {
+		AVAX_USD: "0x5498BB86BC934c8D34FDA08E81D444153d0D06aD"
+	},
+	// ETH/USD Price Feed on Ethereum Sepolia
+	[ETHEREUM_SEPOLIA_CHAIN_ID]: {
+		ETH_USD: "0x694AA1769357215DE4FAC081bf1f309aDC325306"
+	},
+	// ETH/USD Price Feed on Base Sepolia  
+	[BASE_SEPOLIA_CHAIN_ID]: {
+		ETH_USD: "0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1"
+	}
+} as const;
+
 // ===== SUPABASE CONFIGURATION =====
 export const SUPABASE_CONFIG = {
 	url: process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wtsruzsccudercdaxbmp.supabase.co',

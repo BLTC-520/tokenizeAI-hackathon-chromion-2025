@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAccount, useChainId } from 'wagmi';
 import { getContractService, TimeToken } from '../services/contractService';
 import { formatEther } from 'viem';
-import { isSupportedChain, getChainDisplayName } from '../lib/wagmi';
+import { isSupportedChain, getChainDisplayName, getContractAddress } from '../lib/wagmi';
+import { getPriceService, FormattedPrice } from '../services/priceService';
 import NotificationCenter from './NotificationCenter';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 
@@ -23,12 +24,34 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
   const [selectedToken, setSelectedToken] = useState<TimeToken | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [purchaseHours, setPurchaseHours] = useState(1);
+  const [tokenPrices, setTokenPrices] = useState<Map<string, FormattedPrice>>(new Map());
+  const [purchaseCost, setPurchaseCost] = useState<FormattedPrice | null>(null);
 
   const contractService = getContractService();
+  const priceService = getPriceService();
 
   useEffect(() => {
     loadMarketplaceData();
   }, [isConnected, address, chainId]);
+
+  // Update purchase cost when hours or selected token changes
+  useEffect(() => {
+    const updatePurchaseCost = async () => {
+      if (selectedToken && purchaseHours > 0) {
+        try {
+          const cost = await calculatePurchaseCost(selectedToken.pricePerHour, purchaseHours);
+          setPurchaseCost(cost);
+        } catch (error) {
+          console.error('Failed to update purchase cost:', error);
+          setPurchaseCost(null);
+        }
+      } else {
+        setPurchaseCost(null);
+      }
+    };
+
+    updatePurchaseCost();
+  }, [selectedToken, purchaseHours, chainId]);
 
   const loadMarketplaceData = async () => {
     if (!isConnected || !isSupportedChain(chainId)) {
@@ -58,6 +81,9 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
       setTokens(validTokens);
       console.log('✅ Loaded', validTokens.length, 'active tokens');
 
+      // Load price data for all tokens
+      await loadTokenPrices(validTokens);
+
     } catch (error) {
       console.error('❌ Failed to load marketplace data:', error);
     } finally {
@@ -65,26 +91,121 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
     }
   };
 
+  const loadTokenPrices = async (tokensToLoad: TimeToken[]) => {
+    try {
+      console.log('💰 Loading price data for tokens...');
+      const priceMap = new Map<string, FormattedPrice>();
+      
+      // Load prices for all tokens in parallel
+      const pricePromises = tokensToLoad.map(async (token) => {
+        try {
+          const formattedPrice = await contractService.formatPrice(token.pricePerHour, chainId);
+          priceMap.set(token.tokenId, formattedPrice);
+        } catch (error) {
+          console.error(`Failed to load price for token ${token.tokenId}:`, error);
+          // Fallback to simple formatting
+          const currency = priceService.getCurrentCurrencyInfo(chainId).symbol;
+          const cryptoAmount = Number(formatEther(token.pricePerHour));
+          priceMap.set(token.tokenId, {
+            crypto: `${cryptoAmount.toFixed(4)} ${currency}`,
+            usd: 'Price unavailable',
+            cryptoAmount,
+            usdAmount: 0
+          });
+        }
+      });
+
+      await Promise.all(pricePromises);
+      setTokenPrices(priceMap);
+      console.log('✅ Price data loaded for', priceMap.size, 'tokens');
+    } catch (error) {
+      console.error('❌ Failed to load token prices:', error);
+    }
+  };
+
   const handlePurchaseToken = async (token: TimeToken) => {
-    if (!isConnected || !address) return;
+    if (!isConnected || !address) {
+      console.error('❌ Wallet not connected');
+      return;
+    }
+
+    if (!isSupportedChain(chainId)) {
+      console.error('❌ Unsupported chain:', chainId);
+      return;
+    }
 
     try {
       setIsPurchasing(true);
+      console.log('🛒 Starting purchase process...');
+      console.log('Token details:', {
+        tokenId: token.tokenId,
+        pricePerHour: token.pricePerHour.toString(),
+        availableHours: token.availableHours.toString(),
+        purchaseHours,
+        buyer: address
+      });
       
+      // Validate purchase
+      if (purchaseHours <= 0 || purchaseHours > Number(token.availableHours)) {
+        throw new Error(`Invalid hours amount: ${purchaseHours}. Available: ${token.availableHours}`);
+      }
+
+      if (isExpired(token.validUntil)) {
+        throw new Error('Token has expired');
+      }
+
       const totalCost = contractService.calculatePurchaseCost(token.pricePerHour, purchaseHours);
+      console.log('💰 Total cost calculated:', {
+        pricePerHour: formatEther(token.pricePerHour),
+        hours: purchaseHours,
+        totalCost: formatEther(totalCost),
+        totalCostWei: totalCost.toString()
+      });
+
+      // Check user balance (simplified check)
+      try {
+        const balance = await contractService.estimateGasCost('purchase');
+        console.log('💳 Estimated gas cost:', formatEther(balance));
+      } catch (balanceError) {
+        console.warn('Could not estimate gas:', balanceError);
+      }
       
-      await contractService.purchaseTimeToken({
+      console.log('📝 Calling contract purchase function...');
+      const txHash = await contractService.purchaseTimeToken({
         tokenId: token.tokenId,
         hoursAmount: purchaseHours,
         totalPrice: totalCost
       });
 
+      console.log('✅ Purchase transaction successful:', txHash);
+
       // Reload marketplace data to reflect changes
+      console.log('🔄 Reloading marketplace data...');
       await loadMarketplaceData();
       setSelectedToken(null);
+      setPurchaseHours(1);
+      setPurchaseCost(null); // Reset
 
     } catch (error) {
       console.error('❌ Purchase failed:', error);
+      
+      // Show user-friendly error message
+      let errorMessage = 'Purchase failed. Please try again.';
+      if (error instanceof Error) {
+        if (error.message.includes('user rejected')) {
+          errorMessage = 'Transaction was rejected by user.';
+        } else if (error.message.includes('insufficient funds')) {
+          errorMessage = 'Insufficient funds for this transaction.';
+        } else if (error.message.includes('Invalid hours')) {
+          errorMessage = error.message;
+        } else if (error.message.includes('expired')) {
+          errorMessage = 'This token has expired.';
+        }
+      }
+      
+      // You could add a toast notification here
+      alert(errorMessage);
+      
     } finally {
       setIsPurchasing(false);
     }
@@ -93,17 +214,18 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
   const filteredTokens = tokens.filter(token => {
     switch (filter) {
       case 'available':
-        return Number(token.availableHours) > 0 && !contractService.isTokenExpired(token.validUntil);
+        // Only show tokens that can be purchased (not owned by current user)
+        return Number(token.availableHours) > 0 && 
+               !contractService.isTokenExpired(token.validUntil) &&
+               token.creator.toLowerCase() !== address?.toLowerCase();
       case 'my_tokens':
         return token.creator.toLowerCase() === address?.toLowerCase();
       default:
+        // By default, show all tokens but highlight purchasable ones
         return true;
     }
   });
 
-  const formatPrice = (priceWei: bigint) => {
-    return parseFloat(formatEther(priceWei)).toFixed(2);
-  };
 
   const formatValidUntil = (timestamp: bigint) => {
     const date = new Date(Number(timestamp) * 1000);
@@ -114,9 +236,23 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
     return contractService.isTokenExpired(timestamp);
   };
 
-  const calculatePurchaseCost = (pricePerHour: bigint, hours: number) => {
-    const cost = contractService.calculatePurchaseCost(pricePerHour, hours);
-    return parseFloat(formatEther(cost)).toFixed(4);
+  const calculatePurchaseCost = async (pricePerHour: bigint, hours: number) => {
+    try {
+      const cost = contractService.calculatePurchaseCost(pricePerHour, hours);
+      const formattedCost = await contractService.formatPrice(cost, chainId);
+      return formattedCost;
+    } catch (error) {
+      console.error('Failed to calculate purchase cost:', error);
+      const cost = contractService.calculatePurchaseCost(pricePerHour, hours);
+      const currency = priceService.getCurrentCurrencyInfo(chainId).symbol;
+      const cryptoAmount = Number(formatEther(cost));
+      return {
+        crypto: `${cryptoAmount.toFixed(4)} ${currency}`,
+        usd: 'Cost calculation failed',
+        cryptoAmount,
+        usdAmount: 0
+      };
+    }
   };
 
   if (loading) {
@@ -176,6 +312,33 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
               📊 My Dashboard
             </button>
           )}
+          {/* Debug button for development */}
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              onClick={() => {
+                console.log('🔍 Debug Info:', {
+                  isConnected,
+                  address,
+                  chainId,
+                  supportedChain: isSupportedChain(chainId),
+                  contractAddress: getContractAddress(chainId),
+                  totalTokens: tokens.length,
+                  availableTokens: tokens.filter(t => Number(t.availableHours) > 0).length,
+                  tokens: tokens.map(t => ({
+                    id: t.tokenId,
+                    name: t.serviceName,
+                    price: formatEther(t.pricePerHour),
+                    available: t.availableHours.toString(),
+                    creator: t.creator,
+                    isActive: t.isActive
+                  }))
+                });
+              }}
+              className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 px-4 py-2 rounded-lg text-sm font-medium transition-all border border-yellow-500/30"
+            >
+              🐛 Debug
+            </button>
+          )}
         </div>
 
         {/* Filters */}
@@ -183,7 +346,7 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
           <div className="flex gap-4">
             {[
               { key: 'all', label: '🌐 All Tokens', count: tokens.length },
-              { key: 'available', label: '✅ Available', count: tokens.filter(t => Number(t.availableHours) > 0 && !isExpired(t.validUntil)).length },
+              { key: 'available', label: '🛒 Available to Buy', count: tokens.filter(t => Number(t.availableHours) > 0 && !isExpired(t.validUntil) && t.creator.toLowerCase() !== address?.toLowerCase()).length },
               { key: 'my_tokens', label: '👤 My Tokens', count: tokens.filter(t => t.creator.toLowerCase() === address?.toLowerCase()).length }
             ].map(filterOption => (
               <button
@@ -223,73 +386,107 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTokens.map((token, index) => (
-              <motion.div
-                key={token.tokenId}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className={`bg-white/10 backdrop-blur-lg rounded-3xl p-6 border transition-all hover:bg-white/15 cursor-pointer ${
-                  isExpired(token.validUntil) ? 'border-red-500/30' : 'border-white/20'
-                }`}
-                onClick={() => setSelectedToken(token)}
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-white font-bold text-lg mb-1">{token.serviceName}</h3>
-                    <p className="text-white/60 text-sm">
-                      by {token.creator.slice(0, 6)}...{token.creator.slice(-4)}
-                    </p>
-                  </div>
-                  <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    isExpired(token.validUntil) 
-                      ? 'bg-red-500/20 text-red-400' 
-                      : Number(token.availableHours) > 0
-                        ? 'bg-green-500/20 text-green-400'
-                        : 'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {isExpired(token.validUntil) 
-                      ? 'Expired' 
-                      : Number(token.availableHours) > 0 
-                        ? 'Available' 
-                        : 'Sold Out'
-                    }
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <div className="text-white/60 text-xs">Price per Hour</div>
-                    <div className="text-white font-bold">${formatPrice(token.pricePerHour)}</div>
-                  </div>
-                  <div>
-                    <div className="text-white/60 text-xs">Available Hours</div>
-                    <div className="text-white font-bold">{token.availableHours.toString()}h</div>
-                  </div>
-                  <div>
-                    <div className="text-white/60 text-xs">Total Hours</div>
-                    <div className="text-white font-bold">{token.totalHours.toString()}h</div>
-                  </div>
-                  <div>
-                    <div className="text-white/60 text-xs">Valid Until</div>
-                    <div className="text-white font-bold">{formatValidUntil(token.validUntil)}</div>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <div className="text-white/60 text-sm">
-                    Token #{token.tokenId}
-                  </div>
-                  {token.creator.toLowerCase() !== address?.toLowerCase() && 
-                   !isExpired(token.validUntil) && 
-                   Number(token.availableHours) > 0 && (
-                    <div className="text-green-400 font-medium text-sm">
-                      Click to Purchase →
+            {filteredTokens.map((token, index) => {
+              const isOwnToken = token.creator.toLowerCase() === address?.toLowerCase();
+              const canPurchase = !isOwnToken && !isExpired(token.validUntil) && Number(token.availableHours) > 0;
+              const priceData = tokenPrices.get(token.tokenId);
+              
+              return (
+                <motion.div
+                  key={token.tokenId}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className={`bg-white/10 backdrop-blur-lg rounded-3xl p-6 border transition-all relative ${
+                    isExpired(token.validUntil) ? 'border-red-500/30' : 
+                    canPurchase ? 'border-green-500/50 hover:border-green-400 hover:bg-white/15 cursor-pointer' :
+                    'border-white/20'
+                  }`}
+                  onClick={() => canPurchase && setSelectedToken(token)}
+                >
+                  {/* Purchase Badge for purchasable tokens */}
+                  {canPurchase && (
+                    <div className="absolute -top-2 -right-2 bg-gradient-to-r from-green-500 to-blue-500 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse">
+                      💰 AVAILABLE
                     </div>
                   )}
-                </div>
-              </motion.div>
-            ))}
+
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-white font-bold text-lg mb-1">{token.serviceName}</h3>
+                      <p className="text-white/60 text-sm">
+                        by {isOwnToken ? 'You' : `${token.creator.slice(0, 6)}...${token.creator.slice(-4)}`}
+                      </p>
+                    </div>
+                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      isExpired(token.validUntil) 
+                        ? 'bg-red-500/20 text-red-400' 
+                        : Number(token.availableHours) > 0
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-yellow-500/20 text-yellow-400'
+                    }`}>
+                      {isExpired(token.validUntil) 
+                        ? 'Expired' 
+                        : Number(token.availableHours) > 0 
+                          ? 'Available' 
+                          : 'Sold Out'
+                      }
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <div className="text-white/60 text-xs">Price per Hour</div>
+                      <div className="text-white font-bold text-lg">
+                        {priceData ? priceData.crypto : 'Loading...'}
+                      </div>
+                      {priceData && priceData.usd !== 'Price unavailable' && (
+                        <div className="text-white/50 text-xs">{priceData.usd}</div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-white/60 text-xs">Available Hours</div>
+                      <div className="text-white font-bold text-lg">{token.availableHours.toString()}h</div>
+                    </div>
+                    <div>
+                      <div className="text-white/60 text-xs">Total Hours</div>
+                      <div className="text-white font-bold">{token.totalHours.toString()}h</div>
+                    </div>
+                    <div>
+                      <div className="text-white/60 text-xs">Valid Until</div>
+                      <div className="text-white font-bold">{formatValidUntil(token.validUntil)}</div>
+                    </div>
+                  </div>
+
+                  {/* Action Area */}
+                  <div className="flex justify-between items-center">
+                    <div className="text-white/60 text-sm">
+                      Token #{token.tokenId}
+                    </div>
+                    
+                    {/* Purchase Button for purchasable tokens */}
+                    {canPurchase && (
+                      <button
+                        className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all transform hover:scale-105 shadow-lg"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedToken(token);
+                        }}
+                      >
+                        🛒 BUY NOW
+                      </button>
+                    )}
+                    
+                    {/* Your Token indicator */}
+                    {isOwnToken && (
+                      <div className="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-lg text-sm font-medium">
+                        👤 Your Token
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         )}
 
@@ -301,7 +498,11 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-              onClick={() => setSelectedToken(null)}
+              onClick={() => {
+                setSelectedToken(null);
+                setPurchaseHours(1);
+                setPurchaseCost(null);
+              }}
             >
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
@@ -322,7 +523,14 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
                     </div>
                     <div>
                       <span className="text-white/60">Price per Hour:</span>
-                      <div className="text-white font-medium">${formatPrice(selectedToken.pricePerHour)}</div>
+                      <div className="text-white font-medium">
+                        {tokenPrices.get(selectedToken.tokenId)?.crypto || 'Loading...'}
+                      </div>
+                      {tokenPrices.get(selectedToken.tokenId)?.usd !== 'Price unavailable' && (
+                        <div className="text-white/50 text-xs">
+                          {tokenPrices.get(selectedToken.tokenId)?.usd}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <span className="text-white/60">Available:</span>
@@ -348,7 +556,17 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
                         className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-white/50"
                       />
                       <div className="mt-2 text-white/70 text-sm">
-                        Total Cost: {calculatePurchaseCost(selectedToken.pricePerHour, purchaseHours)} ETH
+                        <div className="font-semibold">Total Cost:</div>
+                        {purchaseCost ? (
+                          <div>
+                            <div className="text-white font-bold text-lg">{purchaseCost.crypto}</div>
+                            {purchaseCost.usd !== 'Cost calculation failed' && (
+                              <div className="text-white/60 text-sm">{purchaseCost.usd}</div>
+                            )}
+                          </div>
+                        ) : (
+                          <div>Calculating...</div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -356,7 +574,11 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
 
                 <div className="flex gap-4">
                   <button
-                    onClick={() => setSelectedToken(null)}
+                    onClick={() => {
+                      setSelectedToken(null);
+                      setPurchaseHours(1);
+                      setPurchaseCost(null);
+                    }}
                     className="flex-1 bg-white/20 hover:bg-white/30 text-white py-3 px-6 rounded-xl font-medium transition-all"
                   >
                     Close
@@ -367,9 +589,18 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
                     <button
                       onClick={() => handlePurchaseToken(selectedToken)}
                       disabled={isPurchasing || !isConnected}
-                      className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 disabled:from-gray-500 disabled:to-gray-600 text-white py-3 px-6 rounded-xl font-medium transition-all"
+                      className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 disabled:from-gray-500 disabled:to-gray-600 text-white py-4 px-8 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg"
                     >
-                      {isPurchasing ? 'Purchasing...' : 'Purchase'}
+                      {isPurchasing ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                          Processing...
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-2">
+                          🛒 Purchase {purchaseHours}h for {purchaseCost?.crypto || 'Calculating...'}
+                        </div>
+                      )}
                     </button>
                   )}
                 </div>

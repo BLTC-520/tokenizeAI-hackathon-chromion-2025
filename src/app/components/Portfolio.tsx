@@ -490,7 +490,7 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
                   📈 Market Analysis
                 </h2>
                 <p className="text-white/80 mb-6">
-                  AI-powered market analysis with real-time skill pricing data
+                  Market analysis with the help of Chainlink Functions & AI insights
                 </p>
                 
                 {!marketAnalysis ? (
