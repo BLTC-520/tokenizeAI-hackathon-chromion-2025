@@ -41,7 +41,8 @@ export default function TokenCreation({ suggestion, onSuccess, onCancel }: Token
   const estimateGas = async () => {
     try {
       const cost = await contractService.estimateGasCost('create');
-      setGasEstimate(contractService.formatPrice(cost));
+      const formattedPrice = await contractService.formatPrice(cost);
+      setGasEstimate(formattedPrice.crypto); // Use the crypto amount as string
     } catch (error) {
       console.error('Failed to estimate gas:', error);
       setGasEstimate('~0.001');

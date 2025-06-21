@@ -48,11 +48,20 @@ export default function TransactionProgress({
 
   // Initialize steps from bundle tokens
   useEffect(() => {
-    const initialSteps: TokenCreationStep[] = bundle.tokens.map((token, index) => ({
-      id: `step-${index}`,
-      serviceName: token.serviceName,
-      status: index === 0 ? 'pending' : 'pending'
-    }));
+    console.log('🔍 TransactionProgress: Initializing steps from bundle tokens');
+    console.log('Bundle:', bundle);
+    console.log('Tokens in bundle:', bundle.tokens);
+    
+    const initialSteps: TokenCreationStep[] = bundle.tokens.map((token, index) => {
+      console.log(`Token ${index}:`, token.serviceName);
+      return {
+        id: `step-${index}`,
+        serviceName: token.serviceName,
+        status: index === 0 ? 'pending' : 'pending'
+      };
+    });
+    
+    console.log('Generated steps:', initialSteps);
     setSteps(initialSteps);
   }, [bundle.tokens]);
 
@@ -63,6 +72,14 @@ export default function TransactionProgress({
       processNextToken();
     }
   }, [steps]);
+
+  // Process next token when currentStepIndex changes
+  useEffect(() => {
+    if (currentStepIndex > 0 && currentStepIndex < bundle.tokens.length && !isCancelled) {
+      console.log(`🔄 currentStepIndex changed to ${currentStepIndex}, processing next token...`);
+      processNextToken();
+    }
+  }, [currentStepIndex]);
 
   // Handle transaction state changes
   useEffect(() => {
@@ -88,6 +105,9 @@ export default function TransactionProgress({
 
   useEffect(() => {
     if (isSuccess && currentStepIndex < steps.length && !isCancelled) {
+      console.log(`✅ Transaction ${currentStepIndex + 1} successful!`);
+      console.log(`Current step: ${currentStepIndex + 1}/${bundle.tokens.length}`);
+      
       // Clear the timeout since transaction succeeded
       if (transactionTimeout) {
         clearTimeout(transactionTimeout);
@@ -102,9 +122,12 @@ export default function TransactionProgress({
       // Move to next token or complete
       setTimeout(() => {
         if (!isCancelled && currentStepIndex + 1 < bundle.tokens.length) {
-          setCurrentStepIndex(currentStepIndex + 1);
-          processNextToken();
+          const nextIndex = currentStepIndex + 1;
+          console.log(`🔄 Moving to next token: ${currentStepIndex + 1} → ${nextIndex + 1}`);
+          setCurrentStepIndex(nextIndex);
+          // Don't call processNextToken() here - let the useEffect handle it
         } else if (!isCancelled) {
+          console.log(`🎉 All ${bundle.tokens.length} tokens completed!`);
           // All tokens completed
           setTimeout(() => {
             if (!isCancelled) {
@@ -175,11 +198,16 @@ export default function TransactionProgress({
     if (currentStepIndex >= bundle.tokens.length || isCancelled) return;
 
     const token = bundle.tokens[currentStepIndex];
+    console.log(`🚀 Processing token ${currentStepIndex}:`, token);
+    console.log('Service Name:', token.serviceName);
+    console.log('Full token object:', JSON.stringify(token, null, 2));
+    
     updateStepStatus(currentStepIndex, 'preparing');
 
     try {
       // Convert token suggestion to contract parameters
       const params: CreateTokenParams = ParameterValidationService.tokenSuggestionToParams(token);
+      console.log('Converted params:', params);
       
       // Validate parameters one more time
       const validation = ParameterValidationService.validateTokenCreation(params);
@@ -189,6 +217,7 @@ export default function TransactionProgress({
 
       updateStepStatus(currentStepIndex, 'signing');
 
+      console.log(`📤 Calling createToken for token ${currentStepIndex + 1}: "${params.serviceName}"`);
       // Call smart contract
       createToken({
         address: TIME_TOKEN_CONTRACT_ADDRESSES[chainId as keyof typeof TIME_TOKEN_CONTRACT_ADDRESSES] as `0x${string}`,

@@ -39,6 +39,7 @@ export interface SessionData {
   completedQuestionnaireStep: number;
   lastActivity: number;
   version: string; // for data migration
+  geminiApiKey?: string; // Optional Gemini API key for AI services
 }
 
 // Storage keys

@@ -62,7 +62,7 @@ export class ContractService {
 
       const account = getAccount(config);
       const chainId = getChainId(config);
-      
+
       if (!account.address) {
         throw new Error('Wallet not connected');
       }
@@ -82,15 +82,15 @@ export class ContractService {
         chainId,
         currency: this.priceService.getCurrentCurrencyInfo(chainId).symbol
       });
-      
+
       const pricePerHourWei = await this.priceService.convertUSDToCrypto(params.pricePerHour, chainId);
-      
+
       console.log('✅ Price conversion complete:', {
         originalUSD: `$${params.pricePerHour}`,
         convertedAmount: formatEther(pricePerHourWei),
         currency: this.priceService.getCurrentCurrencyInfo(chainId).symbol
       });
-      
+
       // Call the smart contract
       const hash = await writeContract(config, {
         address: contractAddress as `0x${string}`,
@@ -113,9 +113,9 @@ export class ContractService {
         title: '⏳ Token Creation Pending',
         message: `Creating "${params.serviceName}" token...`,
         priority: 'medium',
-        metadata: { 
+        metadata: {
           transactionHash: hash,
-          serviceName: params.serviceName 
+          serviceName: params.serviceName
         }
       });
 
@@ -126,7 +126,7 @@ export class ContractService {
 
         // Get the token ID from events (simplified - in real implementation, parse logs)
         const currentTokenId = await this.getCurrentTokenId();
-        
+
         // Add success notification
         this.alertAgent.addNotification({
           type: 'token_created',
@@ -135,16 +135,16 @@ export class ContractService {
           priority: 'high',
           actionUrl: `/tokens/${currentTokenId}`,
           actionLabel: 'View Token',
-          metadata: { 
+          metadata: {
             tokenId: currentTokenId.toString(),
-            amount: params.pricePerHour 
+            amount: params.pricePerHour
           }
         });
 
         return { hash, tokenId: currentTokenId.toString() };
       } catch (waitError) {
         console.error('❌ Transaction failed:', waitError);
-        
+
         // Add failure notification
         this.alertAgent.addNotification({
           type: 'system',
@@ -158,7 +158,7 @@ export class ContractService {
 
     } catch (error) {
       console.error('❌ Failed to create time token:', error);
-      
+
       // Handle error using error handling system
       const errorDetails = handleError(error, {
         component: 'ContractService',
@@ -179,7 +179,7 @@ export class ContractService {
 
       const account = getAccount(config);
       const chainId = getChainId(config);
-      
+
       if (!account.address) {
         throw new Error('Wallet not connected');
       }
@@ -232,7 +232,7 @@ export class ContractService {
         title: '⏳ Purchase Pending',
         message: `Purchasing ${params.hoursAmount}h of service...`,
         priority: 'medium',
-        metadata: { 
+        metadata: {
           tokenId: params.tokenId,
           chainId
         }
@@ -250,7 +250,7 @@ export class ContractService {
         priority: 'high',
         actionUrl: `/dashboard/purchases`,
         actionLabel: 'View Purchase',
-        metadata: { 
+        metadata: {
           tokenId: params.tokenId,
           amount: Number(formatEther(params.totalPrice))
         }
@@ -260,7 +260,7 @@ export class ContractService {
 
     } catch (error) {
       console.error('❌ Failed to purchase time token:', error);
-      
+
       // Enhanced error logging
       if (error instanceof Error) {
         console.error('Error details:', {
@@ -269,7 +269,7 @@ export class ContractService {
           stack: error.stack
         });
       }
-      
+
       this.alertAgent.addNotification({
         type: 'system',
         title: '❌ Purchase Failed',
@@ -288,7 +288,7 @@ export class ContractService {
 
       const account = getAccount(config);
       const chainId = getChainId(config);
-      
+
       if (!account.address) {
         throw new Error('Wallet not connected');
       }
@@ -337,7 +337,7 @@ export class ContractService {
 
       const account = getAccount(config);
       const chainId = getChainId(config);
-      
+
       if (!account.address) {
         throw new Error('Wallet not connected');
       }
@@ -376,7 +376,7 @@ export class ContractService {
   // Get current token ID
   async getCurrentTokenId(): Promise<bigint> {
     try {
-      
+
       const chainId = getChainId(config);
       const contractAddress = getContractAddress(chainId);
 
@@ -396,7 +396,7 @@ export class ContractService {
   // Get time token details
   async getTimeToken(tokenId: string): Promise<TimeToken | null> {
     try {
-      
+
       const chainId = getChainId(config);
       const contractAddress = getContractAddress(chainId);
 
@@ -410,7 +410,7 @@ export class ContractService {
       if (!tokenData) return null;
 
       const token = tokenData as any;
-      
+
       return {
         tokenId,
         creator: token.creator,
@@ -447,7 +447,7 @@ export class ContractService {
       });
 
       const data = marketData as any;
-      
+
       return {
         availableHours: data[0],
         pricePerHour: data[1],
@@ -525,7 +525,7 @@ export class ContractService {
   }
 
   // Utility functions
-  
+
   // Calculate token purchase cost
   calculatePurchaseCost(pricePerHour: bigint, hours: number): bigint {
     return pricePerHour * BigInt(hours);
@@ -566,7 +566,7 @@ export class ContractService {
       purchase: parseEther('0.0005'), // ~$1 at $2000 ETH  
       complete: parseEther('0.0003') // ~$0.60 at $2000 ETH
     };
-    
+
     return gasEstimates[type];
   }
 }

@@ -17,6 +17,8 @@ export interface AlertNotification {
     seller?: string;
     contractAddress?: string;
     chainId?: number;
+    transactionHash?: string;
+    serviceName?: string;
   };
 }
 
