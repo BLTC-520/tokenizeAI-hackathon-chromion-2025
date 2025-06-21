@@ -386,9 +386,9 @@ export class UnifiedKYCAgent {
                 functionName: 'requestKYCVerification',
                 args: [
                     walletAddress as `0x${string}`,
-                    this.donHostedSecretsSlotID,
-                    this.donHostedSecretsVersion,
-                    this.subscriptionId
+                    BigInt(this.donHostedSecretsSlotID),
+                    BigInt(this.donHostedSecretsVersion),
+                    BigInt(this.subscriptionId)
                 ]
             });
 

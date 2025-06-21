@@ -57,6 +57,10 @@ export default function BundleSelection({
 
   const handleConfirm = () => {
     const selectedBundle = analysis.bundles.find(b => b.id === selectedBundleId);
+    console.log('🎯 BundleSelection: Confirming bundle selection');
+    console.log('Selected Bundle ID:', selectedBundleId);
+    console.log('Selected Bundle:', selectedBundle);
+    console.log('Selected Bundle Tokens:', selectedBundle?.tokens);
     if (selectedBundle) {
       onSelectBundle(selectedBundle);
     }
