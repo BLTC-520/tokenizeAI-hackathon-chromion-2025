@@ -87,9 +87,9 @@ export class TokenizeAgent {
 
       const analysisPrompt = this.buildTokenizationPrompt(portfolioData, userAnswers);
       const response = await this.callGeminiAPI(analysisPrompt);
-      
+
       const plan = this.parseTokenizationResponse(response);
-      
+
       console.log('✅ TokenizeAgent: Analysis complete -', plan.totalServices, 'services identified');
       return plan;
     } catch (error) {
@@ -107,25 +107,44 @@ export class TokenizeAgent {
     try {
       console.log('🎯 TokenizeAgent: Analyzing goal for agentic token bundles...');
       console.log('Goal:', goal);
+      console.log('API Key available:', !!this.apiKey);
 
       const goalAnalysis = this.parseGoal(goal);
       const agenticPrompt = this.buildAgenticPrompt(goal, goalAnalysis, portfolioData, userAnswers);
+
+      console.log('🤖 Calling Gemini API for agentic analysis...');
       const response = await this.callGeminiAPI(agenticPrompt);
-      
+      console.log('📡 Received AI response, parsing...');
+
       const analysis = this.parseAgenticResponse(response, goalAnalysis);
-      
+
       console.log('✅ TokenizeAgent: Agentic analysis complete -', analysis.bundles.length, 'bundles generated');
+      console.log('Generated bundles:', analysis.bundles.map(b => ({
+        id: b.id,
+        name: b.bundleName,
+        tokenCount: b.tokens.length,
+        tokens: b.tokens.map(t => t.serviceName)
+      })));
       return analysis;
     } catch (error) {
       console.error('❌ TokenizeAgent agentic analysis failed:', error);
-      return this.getFallbackAgenticAnalysis(goal, portfolioData, userAnswers);
+      console.log('🔄 Falling back to hardcoded analysis...');
+      const fallbackAnalysis = this.getFallbackAgenticAnalysis(goal, portfolioData, userAnswers);
+      console.log('✅ Fallback analysis complete -', fallbackAnalysis.bundles.length, 'bundles generated');
+      console.log('Fallback bundles:', fallbackAnalysis.bundles.map(b => ({
+        id: b.id,
+        name: b.bundleName,
+        tokenCount: b.tokens.length,
+        tokens: b.tokens.map(t => t.serviceName)
+      })));
+      return fallbackAnalysis;
     }
   }
 
   // Goal parsing logic - extract amount and timeframe from natural language
   private parseGoal(goal: string): GoalAnalysis {
     console.log('🔍 Parsing goal:', goal);
-    
+
     // Extract monetary amounts (e.g., $200, 200 dollars, 200$)
     const amountRegex = /\$?(\d+(?:,?\d{3})*(?:\.\d{2})?)\s*(?:dollars?|\$)?/i;
     const amountMatch = goal.match(amountRegex);
@@ -134,14 +153,14 @@ export class TokenizeAgent {
     // Extract timeframes
     const timeframeRegex = /(next|this|in|within)\s+(week|month|day|year|(\d+)\s*(weeks?|months?|days?|years?))/i;
     const timeframeMatch = goal.match(timeframeRegex);
-    
+
     let timeframe = 'this month';
     let timeframeDays = 30;
-    
+
     if (timeframeMatch) {
       const fullMatch = timeframeMatch[0];
       timeframe = fullMatch;
-      
+
       if (fullMatch.includes('week')) {
         timeframeDays = 7;
       } else if (fullMatch.includes('day')) {
@@ -151,7 +170,7 @@ export class TokenizeAgent {
       } else if (fullMatch.includes('year')) {
         timeframeDays = 365;
       }
-      
+
       // Handle numbered timeframes (e.g., "in 2 weeks")
       const numberMatch = fullMatch.match(/(\d+)/);
       if (numberMatch) {
@@ -179,15 +198,15 @@ export class TokenizeAgent {
 
   // Build AI prompt for agentic mode analysis
   private buildAgenticPrompt(
-    goal: string, 
-    goalAnalysis: GoalAnalysis, 
-    portfolioData: PortfolioData, 
+    goal: string,
+    goalAnalysis: GoalAnalysis,
+    portfolioData: PortfolioData,
     userAnswers: UserAnswers
   ): string {
-    const services = portfolioData?.services || [];
+    const projects = portfolioData?.projectRecommendations || [];
     const userName = userAnswers?.name || 'User';
     const userExperience = userAnswers?.experience || 'intermediate';
-    
+
     return `
 You are an expert TokenizeAgent specialized in goal-driven token bundle creation with educational guidance. Your role is to help users achieve realistic income goals through strategic time tokenization.
 
@@ -205,11 +224,11 @@ Parsed Analysis:
 - Initial Reality Score: ${goalAnalysis.realityScore}/10
 
 AI-GENERATED PORTFOLIO:
-${services.map(service => `
+${projects.map((service: any) => `
 - ${service?.name || 'Service'}: ${service?.description || 'Professional service'}
-  Hourly Rate: $${service?.hourlyRate || 50}
-  Market Demand: ${service?.marketDemand || 'medium'}
-  Skills: ${(service?.skills || []).join(', ')}
+  Estimated Budget: ${service?.estimatedBudget || '$5,000-10,000'}
+  Duration: ${service?.duration || '4-6 weeks'}
+  Required Skills: ${(service?.requiredSkills || []).join(', ')}
 `).join('\n')}
 
 MISSION - Create 3 Token Bundles:
@@ -285,11 +304,11 @@ IMPORTANT GUIDELINES:
 
   private buildTokenizationPrompt(portfolioData: PortfolioData, userAnswers: UserAnswers): string {
     // Safely handle potentially undefined data
-    const services = portfolioData?.services || [];
+    const services = portfolioData?.projectRecommendations || [];
     const userName = userAnswers?.name || 'User';
     const userExperience = userAnswers?.experience || 'intermediate';
     const userGoals = userAnswers?.goals || 'Professional growth';
-    
+
     return `
 You are TokenizeAgent, an AI specialized in analyzing professional portfolios and creating optimal time token strategies for blockchain-based service marketplaces.
 
@@ -299,11 +318,11 @@ Experience: ${userExperience}
 Goals: ${userGoals}
 
 AI-Generated Portfolio:
-${services.map(service => `
+${services.map((service: any) => `
 - ${service?.name || 'Service'}: ${service?.description || 'Professional service'}
-  Skills: ${(service?.skills || []).join(', ')}
-  Hourly Rate: $${service?.hourlyRate || 50}
-  Market Demand: ${service?.marketDemand || 'medium'}
+  Required Skills: ${(service?.requiredSkills || []).join(', ')}
+  Estimated Budget: ${service?.estimatedBudget || '$5,000-10,000'}
+  Duration: ${service?.duration || '4-6 weeks'}
 `).join('\n')}
 
 TOKENIZATION MISSION:
@@ -358,7 +377,7 @@ Focus on creating 3-5 high-quality token suggestions that maximize revenue while
 
   private async callGeminiAPI(prompt: string): Promise<string> {
     console.log('🔑 TokenizeAgent calling Gemini API with key length:', this.apiKey?.length);
-    
+
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + this.apiKey, {
       method: 'POST',
       headers: {
@@ -380,7 +399,7 @@ Focus on creating 3-5 high-quality token suggestions that maximize revenue while
     });
 
     console.log('📡 Gemini API response status:', response.status);
-    
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ Gemini API error details:', errorText);
@@ -401,7 +420,7 @@ Focus on creating 3-5 high-quality token suggestions that maximize revenue while
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
-      
+
       // Transform to our TokenizationPlan structure
       const plan: TokenizationPlan = {
         totalServices: parsed.tokenSuggestions?.length || 0,
@@ -430,23 +449,23 @@ Focus on creating 3-5 high-quality token suggestions that maximize revenue while
 
   private getFallbackTokenizationPlan(portfolioData: PortfolioData, userAnswers: UserAnswers): TokenizationPlan {
     console.log('🔄 Using fallback tokenization plan...');
-    
+
     // Safely handle potentially undefined services
-    const services = portfolioData?.services || [];
-    const fallbackSuggestions: TokenSuggestion[] = services.slice(0, 3).map((service, index) => ({
+    const services = portfolioData?.projectRecommendations || [];
+    const fallbackSuggestions: TokenSuggestion[] = services.slice(0, 3).map((service: any, index: number) => ({
       id: `fallback-${index}`,
       serviceName: service?.name || `Service ${index + 1}`,
       description: service?.description || 'Professional service offering',
-      suggestedPricePerHour: Math.round((service?.hourlyRate || 50) * 0.9), // 10% discount for tokens
+      suggestedPricePerHour: Math.round(this.extractHourlyRateFromBudget(service?.estimatedBudget) || 50) * 0.9, // 10% discount for tokens
       suggestedTotalHours: 20,
       suggestedValidityDays: 60,
-      reasoning: `Based on ${service?.marketDemand || 'medium'} market demand and competitive hourly rate of $${service?.hourlyRate || 50}`,
-      marketDemand: (service?.marketDemand as 'high' | 'medium' | 'low') || 'medium',
+      reasoning: `Based on project budget ${service?.estimatedBudget || '$5,000-10,000'} and duration ${service?.duration || '4-6 weeks'}`,
+      marketDemand: 'medium' as 'high' | 'medium' | 'low',
       competitiveness: 7,
-      estimatedRevenue: Math.round((service?.hourlyRate || 50) * 0.9 * 20),
+      estimatedRevenue: Math.round((this.extractHourlyRateFromBudget(service?.estimatedBudget) || 50) * 0.9 * 20),
       priority: index === 0 ? 'high' : index === 1 ? 'medium' : 'low',
-      category: (service?.skills && service.skills[0]) || 'Professional Services',
-      tags: (service?.skills || ['Professional']).slice(0, 3)
+      category: (service?.requiredSkills && service.requiredSkills[0]) || 'Professional Services',
+      tags: (service?.requiredSkills || ['Professional']).slice(0, 3)
     }));
 
     // If no services exist, create default ones
@@ -498,7 +517,7 @@ Focus on creating 3-5 high-quality token suggestions that maximize revenue while
     const totalValue = suggestion.suggestedPricePerHour * suggestion.suggestedTotalHours;
     const discountFromHourly = ((100 - suggestion.suggestedPricePerHour) / 100) * suggestion.suggestedTotalHours;
     const breakEvenHours = Math.ceil(totalValue / suggestion.suggestedPricePerHour);
-    
+
     return {
       totalTokenValue: totalValue,
       discountOffered: discountFromHourly,
@@ -530,7 +549,7 @@ Focus on creating 3-5 high-quality token suggestions that maximize revenue while
 
     const strategy = strategies[marketDemand];
     const tokenPrice = Math.round(hourlyRate * (100 - strategy.discountPercent) / 100);
-    
+
     return {
       suggestedTokenPrice: tokenPrice,
       discountFromHourly: strategy.discountPercent,
@@ -543,7 +562,7 @@ Focus on creating 3-5 high-quality token suggestions that maximize revenue while
   private parseAgenticResponse(response: string, goalAnalysis: GoalAnalysis): AgenticAnalysis {
     try {
       console.log('📝 Parsing agentic AI response...');
-      
+
       // Extract JSON from response
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
@@ -551,7 +570,7 @@ Focus on creating 3-5 high-quality token suggestions that maximize revenue while
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
-      
+
       // Enhance goal analysis with AI insights
       const enhancedGoalAnalysis: GoalAnalysis = {
         ...goalAnalysis,
@@ -577,23 +596,23 @@ Focus on creating 3-5 high-quality token suggestions that maximize revenue while
 
   // Fallback agentic analysis when AI fails
   private getFallbackAgenticAnalysis(
-    goal: string, 
-    portfolioData: PortfolioData, 
+    goal: string,
+    portfolioData: PortfolioData,
     userAnswers: UserAnswers
   ): AgenticAnalysis {
     console.log('🔄 Using fallback agentic analysis...');
-    
+
     const goalAnalysis = this.parseGoal(goal);
-    const services = portfolioData?.services || [];
+    const services = portfolioData?.projectRecommendations || [];
     const userExperience = userAnswers?.experience || 'intermediate';
-    
+
     // Create realistic bundles based on portfolio
     const bundles: TokenBundle[] = [];
-    
+
     if (services.length > 0) {
       const baseService = services[0];
-      const baseRate = baseService?.hourlyRate || 50;
-      
+      const baseRate = this.extractHourlyRateFromBudget(baseService?.estimatedBudget) || 50;
+
       // Conservative bundle
       bundles.push({
         id: 'conservative',
@@ -612,8 +631,8 @@ Focus on creating 3-5 high-quality token suggestions that maximize revenue while
           competitiveness: 7,
           estimatedRevenue: Math.round(baseRate * 0.8 * Math.min(goalAnalysis.targetAmount / (baseRate * 0.8), 40)),
           priority: 'high',
-          category: baseService?.skills?.[0] || 'Professional',
-          tags: baseService?.skills || ['Service']
+          category: baseService?.requiredSkills?.[0] || 'Professional',
+          tags: baseService?.requiredSkills || ['Service']
         }],
         totalRevenue: Math.round(baseRate * 0.8 * Math.min(goalAnalysis.targetAmount / (baseRate * 0.8), 40)),
         totalHours: Math.min(goalAnalysis.targetAmount / (baseRate * 0.8), 40),
@@ -624,60 +643,98 @@ Focus on creating 3-5 high-quality token suggestions that maximize revenue while
         timeToComplete: `${Math.ceil(Math.min(goalAnalysis.targetAmount / (baseRate * 0.8), 40) / 8)} working days`
       });
 
-      // Balanced bundle
+      // Balanced bundle with multiple tokens
+      const balancedTokens: TokenSuggestion[] = [
+        {
+          id: 'balanced-1',
+          serviceName: 'Full-Stack Development',
+          description: 'Complete web application development',
+          suggestedPricePerHour: baseRate,
+          suggestedTotalHours: 15,
+          suggestedValidityDays: goalAnalysis.timeframeDays,
+          reasoning: 'Market-competitive pricing for full-stack work',
+          marketDemand: 'high',
+          competitiveness: 6,
+          estimatedRevenue: Math.round(baseRate * 15),
+          priority: 'high',
+          category: 'Development',
+          tags: ['Full-Stack', 'Web Development', 'Backend']
+        },
+        {
+          id: 'balanced-2',
+          serviceName: 'Technical Consulting',
+          description: 'Provide technical guidance and architecture advice',
+          suggestedPricePerHour: Math.round(baseRate * 1.1),
+          suggestedTotalHours: 5,
+          suggestedValidityDays: goalAnalysis.timeframeDays,
+          reasoning: 'Premium pricing for consulting expertise',
+          marketDemand: 'medium',
+          competitiveness: 5,
+          estimatedRevenue: Math.round(baseRate * 1.1 * 5),
+          priority: 'medium',
+          category: 'Consulting',
+          tags: ['Consulting', 'Architecture', 'Strategy']
+        }
+      ];
+
       bundles.push({
         id: 'balanced',
         bundleName: 'Market Rate Strategy',
         description: 'Competitive market pricing',
         strategy: 'balanced',
-        tokens: [{
-          id: 'balanced-1',
-          serviceName: baseService?.name || 'Professional Service',
-          description: baseService?.description || 'Core service offering',
-          suggestedPricePerHour: baseRate,
-          suggestedTotalHours: Math.min(goalAnalysis.targetAmount / baseRate, 35),
-          suggestedValidityDays: goalAnalysis.timeframeDays,
-          reasoning: 'Market-competitive pricing',
-          marketDemand: 'medium',
-          competitiveness: 6,
-          estimatedRevenue: Math.round(baseRate * Math.min(goalAnalysis.targetAmount / baseRate, 35)),
-          priority: 'high',
-          category: baseService?.skills?.[0] || 'Professional',
-          tags: baseService?.skills || ['Service']
-        }],
-        totalRevenue: Math.round(baseRate * Math.min(goalAnalysis.targetAmount / baseRate, 35)),
-        totalHours: Math.min(goalAnalysis.targetAmount / baseRate, 35),
-        averageHourlyRate: baseRate,
+        tokens: balancedTokens,
+        totalRevenue: balancedTokens.reduce((sum, token) => sum + token.estimatedRevenue, 0),
+        totalHours: balancedTokens.reduce((sum, token) => sum + token.suggestedTotalHours, 0),
+        averageHourlyRate: Math.round(balancedTokens.reduce((sum, token) => sum + token.suggestedPricePerHour, 0) / balancedTokens.length),
         successProbability: 6,
         pros: ['Market competitive', 'Good balance of risk/reward'],
         cons: ['Moderate competition', 'Requires good positioning'],
         timeToComplete: `${Math.ceil(Math.min(goalAnalysis.targetAmount / baseRate, 35) / 8)} working days`
       });
 
-      // Aggressive bundle
+      // Aggressive bundle with multiple tokens
+      const aggressiveTokens: TokenSuggestion[] = [
+        {
+          id: 'aggressive-1',
+          serviceName: 'Enterprise Architecture Design',
+          description: 'Design scalable enterprise-level system architecture',
+          suggestedPricePerHour: Math.round(baseRate * 1.5),
+          suggestedTotalHours: 8,
+          suggestedValidityDays: Math.max(goalAnalysis.timeframeDays - 7, 14),
+          reasoning: 'Premium pricing for enterprise expertise',
+          marketDemand: 'medium',
+          competitiveness: 4,
+          estimatedRevenue: Math.round(baseRate * 1.5 * 8),
+          priority: 'high',
+          category: 'Architecture',
+          tags: ['Enterprise', 'Architecture', 'Premium']
+        },
+        {
+          id: 'aggressive-2',
+          serviceName: 'DevOps Implementation',
+          description: 'Set up CI/CD pipelines and infrastructure automation',
+          suggestedPricePerHour: Math.round(baseRate * 1.3),
+          suggestedTotalHours: 6,
+          suggestedValidityDays: Math.max(goalAnalysis.timeframeDays - 7, 14),
+          reasoning: 'High-demand DevOps skills command premium rates',
+          marketDemand: 'high',
+          competitiveness: 5,
+          estimatedRevenue: Math.round(baseRate * 1.3 * 6),
+          priority: 'medium',
+          category: 'DevOps',
+          tags: ['DevOps', 'CI/CD', 'Infrastructure']
+        }
+      ];
+
       bundles.push({
         id: 'aggressive',
         bundleName: 'Premium Positioning Strategy',
         description: 'Higher rates requiring strong market position',
         strategy: 'aggressive',
-        tokens: [{
-          id: 'aggressive-1',
-          serviceName: baseService?.name || 'Professional Service',
-          description: baseService?.description || 'Premium service offering',
-          suggestedPricePerHour: Math.round(baseRate * 1.3),
-          suggestedTotalHours: Math.min(goalAnalysis.targetAmount / (baseRate * 1.3), 25),
-          suggestedValidityDays: Math.max(goalAnalysis.timeframeDays - 7, 14),
-          reasoning: 'Premium pricing for experienced professionals',
-          marketDemand: 'medium',
-          competitiveness: 4,
-          estimatedRevenue: Math.round(baseRate * 1.3 * Math.min(goalAnalysis.targetAmount / (baseRate * 1.3), 25)),
-          priority: 'medium',
-          category: baseService?.skills?.[0] || 'Professional',
-          tags: baseService?.skills || ['Premium']
-        }],
-        totalRevenue: Math.round(baseRate * 1.3 * Math.min(goalAnalysis.targetAmount / (baseRate * 1.3), 25)),
-        totalHours: Math.min(goalAnalysis.targetAmount / (baseRate * 1.3), 25),
-        averageHourlyRate: Math.round(baseRate * 1.3),
+        tokens: aggressiveTokens,
+        totalRevenue: aggressiveTokens.reduce((sum, token) => sum + token.estimatedRevenue, 0),
+        totalHours: aggressiveTokens.reduce((sum, token) => sum + token.suggestedTotalHours, 0),
+        averageHourlyRate: Math.round(aggressiveTokens.reduce((sum, token) => sum + token.suggestedPricePerHour, 0) / aggressiveTokens.length),
         successProbability: 4,
         pros: ['Higher revenue per hour', 'Faster goal achievement'],
         cons: ['Higher risk', 'Requires strong portfolio', 'May be harder to sell'],
@@ -706,7 +763,7 @@ Focus on creating 3-5 high-quality token suggestions that maximize revenue while
         } : undefined
       },
       bundles,
-      recommendation: goalAnalysis.realityScore >= 7 ? 
+      recommendation: goalAnalysis.realityScore >= 7 ?
         'Your goal appears achievable. Consider the Balanced strategy for the best risk/reward ratio.' :
         'Your goal is ambitious. Start with the Conservative strategy to build momentum.',
       educationalInsights: [
@@ -715,6 +772,23 @@ Focus on creating 3-5 high-quality token suggestions that maximize revenue while
         'Consider the time required for client acquisition and project completion'
       ]
     };
+  }
+
+  // Helper method to extract hourly rate from budget string
+  private extractHourlyRateFromBudget(budgetString?: string): number | null {
+    if (!budgetString) return null;
+    
+    // Extract numbers from budget string like "$5,000-10,000" or "$85,000-120,000"
+    const numbers = budgetString.match(/\d+,?\d+/g);
+    if (!numbers || numbers.length === 0) return null;
+    
+    // Get the average of the range or use single value
+    const amounts = numbers.map(n => parseInt(n.replace(',', '')));
+    const avgBudget = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
+    
+    // Estimate hourly rate based on typical project duration (assume 4-8 weeks, 20-40 hours/week)
+    const estimatedHours = 120; // Conservative estimate: 6 weeks * 20 hours/week
+    return Math.round(avgBudget / estimatedHours);
   }
 }
 
