@@ -150,11 +150,49 @@ export default function TokenCreation({ suggestion, onSuccess, onCancel }: Token
       }, 2000);
 
     } catch (error) {
-      console.error('❌ Token creation failed:', error);
       setIsCreating(false);
-      setCurrentStep(1);
+      setCurrentStep(1); // Return to customization step
       
-      // Use error handler to capture and handle the error
+      // Handle user cancellation gracefully - no error logging
+      if (error instanceof Error && (error.message.includes('user rejected') || error.message.includes('User denied transaction') || error.message.includes('cancelled by user') || error.message.includes('rejected'))) {
+        console.log('🗙️ Token creation cancelled by user');
+        
+        alertAgent.addNotification({
+          type: 'system',
+          title: '⚠️ Token Creation Cancelled',
+          message: 'You can modify your token settings and try again.',
+          priority: 'medium'
+        });
+        
+        return; // Exit without logging error
+      }
+      
+      // Handle other errors (insufficient funds, network issues, etc.)
+      console.error('❌ Token creation failed:', error);
+      
+      let errorMessage = 'Token creation failed. Please try again.';
+      let errorTitle = '❌ Token Creation Failed';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('insufficient funds') || error.message.includes('balance')) {
+          errorMessage = 'Insufficient balance for token creation and gas fees.';
+          errorTitle = '💰 Insufficient Funds';
+        } else if (error.message.includes('gas')) {
+          errorMessage = 'Transaction failed due to gas estimation issues.';
+          errorTitle = '⛽ Gas Error';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      alertAgent.addNotification({
+        type: 'system',
+        title: errorTitle,
+        message: errorMessage,
+        priority: 'high'
+      });
+      
+      // Only capture non-cancellation errors for debugging
       captureError(error as Error, {
         action: 'createToken',
         details: { customizations, chainId, address }

@@ -777,15 +777,15 @@ Focus on creating 3-5 high-quality token suggestions that maximize revenue while
   // Helper method to extract hourly rate from budget string
   private extractHourlyRateFromBudget(budgetString?: string): number | null {
     if (!budgetString) return null;
-    
+
     // Extract numbers from budget string like "$5,000-10,000" or "$85,000-120,000"
     const numbers = budgetString.match(/\d+,?\d+/g);
     if (!numbers || numbers.length === 0) return null;
-    
+
     // Get the average of the range or use single value
     const amounts = numbers.map(n => parseInt(n.replace(',', '')));
     const avgBudget = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
-    
+
     // Estimate hourly rate based on typical project duration (assume 4-8 weeks, 20-40 hours/week)
     const estimatedHours = 120; // Conservative estimate: 6 weeks * 20 hours/week
     return Math.round(avgBudget / estimatedHours);

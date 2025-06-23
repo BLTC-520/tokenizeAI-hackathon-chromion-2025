@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import NotificationCenter from './NotificationCenter';
+import { localStorage_utils } from '../utils/localStorage';
 
 interface NavigationHeaderProps {
   currentState: string;
@@ -10,10 +11,10 @@ interface NavigationHeaderProps {
   showNavigation?: boolean;
 }
 
-export default function NavigationHeader({ 
-  currentState, 
-  onNavigate, 
-  showNavigation = false 
+export default function NavigationHeader({
+  currentState,
+  onNavigate,
+  showNavigation = false
 }: NavigationHeaderProps) {
   const navigationSteps = [
     { id: 'questionnaire', label: '📝 Questionnaire', icon: '📝' },
@@ -27,7 +28,15 @@ export default function NavigationHeader({
     const stepOrder = ['questionnaire', 'portfolio', 'tokenization', 'marketplace', 'dashboard'];
     const currentIndex = stepOrder.indexOf(currentState);
     const stepIndex = stepOrder.indexOf(stepId);
-    
+    const userHasReachedDashboard = localStorage_utils.hasUserReachedDashboard();
+
+    // If user has reached dashboard, all steps are considered completed (except current)
+    if (userHasReachedDashboard) {
+      if (stepIndex === currentIndex) return 'current';
+      return 'completed';
+    }
+
+    // Normal progression logic for first-time users
     if (stepIndex < currentIndex) return 'completed';
     if (stepIndex === currentIndex) return 'current';
     return 'upcoming';
@@ -64,7 +73,7 @@ export default function NavigationHeader({
               {navigationSteps.map((step) => {
                 const status = getStepStatus(step.id);
                 const isClickable = status === 'completed' || status === 'current';
-                
+
                 return (
                   <motion.button
                     key={step.id}
@@ -74,11 +83,11 @@ export default function NavigationHeader({
                     whileTap={isClickable ? { scale: 0.95 } : {}}
                     className={`
                       px-4 py-2 rounded-lg font-medium text-sm transition-all
-                      ${status === 'current' 
-                        ? 'bg-white text-purple-600 shadow-lg' 
+                      ${status === 'current'
+                        ? 'bg-white text-purple-600 shadow-lg'
                         : status === 'completed'
-                        ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30 cursor-pointer'
-                        : 'bg-white/10 text-white/50 cursor-not-allowed'
+                          ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30 cursor-pointer'
+                          : 'bg-white/10 text-white/50 cursor-not-allowed'
                       }
                     `}
                   >
@@ -109,7 +118,7 @@ export default function NavigationHeader({
               {navigationSteps.map((step) => {
                 const status = getStepStatus(step.id);
                 const isClickable = status === 'completed' || status === 'current';
-                
+
                 return (
                   <button
                     key={step.id}
@@ -117,11 +126,11 @@ export default function NavigationHeader({
                     disabled={!isClickable}
                     className={`
                       flex flex-col items-center space-y-1 px-3 py-2 rounded-lg min-w-[80px] transition-all
-                      ${status === 'current' 
-                        ? 'bg-white text-purple-600' 
+                      ${status === 'current'
+                        ? 'bg-white text-purple-600'
                         : status === 'completed'
-                        ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30'
-                        : 'bg-white/10 text-white/50 cursor-not-allowed'
+                          ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30'
+                          : 'bg-white/10 text-white/50 cursor-not-allowed'
                       }
                     `}
                   >

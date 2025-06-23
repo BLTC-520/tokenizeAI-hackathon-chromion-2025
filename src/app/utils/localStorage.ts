@@ -40,6 +40,9 @@ export interface SessionData {
   lastActivity: number;
   version: string; // for data migration
   geminiApiKey?: string; // Optional Gemini API key for AI services
+  kycVerified: boolean; // KYC verification status
+  kycResult: any | null; // KYC verification result
+  hasReachedDashboard?: boolean; // Whether user has reached dashboard at least once
 }
 
 // Storage keys
@@ -50,7 +53,7 @@ const STORAGE_KEYS = {
   BOOKING_DATA: 'timeTokenizer_bookings',
 } as const;
 
-// Session timeout (24 hours)
+// Session timeout (24 hours)Purchase failed. Please try again.
 const SESSION_TIMEOUT = 24 * 60 * 60 * 1000;
 const CURRENT_VERSION = '1.0.0';
 
@@ -114,7 +117,7 @@ export const getSessionData = (): SessionData => {
 
   const storedData = localStorage.getItem(STORAGE_KEYS.SESSION_DATA);
   const defaultData = getDefaultSessionData();
-  
+
   if (!storedData) return defaultData;
 
   const parsedData = safeJsonParse(storedData, defaultData);
@@ -146,6 +149,9 @@ const getDefaultSessionData = (): SessionData => ({
   completedQuestionnaireStep: 0,
   lastActivity: Date.now(),
   version: CURRENT_VERSION,
+  kycVerified: false,
+  kycResult: null,
+  hasReachedDashboard: false,
 });
 
 export const clearSessionData = (): void => {
@@ -208,11 +214,11 @@ export const getQuestionnaireProgress = (): number => {
 export const saveTokenDraft = (tokenDraft: TokenDraft): boolean => {
   const sessionData = getSessionData();
   const existingDrafts = sessionData.tokenDrafts || [];
-  
+
   // Update existing or add new draft
   const updatedDrafts = existingDrafts.filter(draft => draft.id !== tokenDraft.id);
   updatedDrafts.push(tokenDraft);
-  
+
   return saveSessionData({ tokenDrafts: updatedDrafts });
 };
 
@@ -228,7 +234,7 @@ export const removeTokenDraft = (draftId: string): boolean => {
 
 export const updateTokenDraftStatus = (draftId: string, status: TokenDraft['status']): boolean => {
   const sessionData = getSessionData();
-  const updatedDrafts = sessionData.tokenDrafts.map(draft => 
+  const updatedDrafts = sessionData.tokenDrafts.map(draft =>
     draft.id === draftId ? { ...draft, status } : draft
   );
   return saveSessionData({ tokenDrafts: updatedDrafts });
@@ -269,7 +275,7 @@ export const saveUserPreferences = (preferences: Partial<UserPreferences>): bool
   try {
     const existingPrefs = getUserPreferences();
     const updatedPrefs = { ...existingPrefs, ...preferences };
-    
+
     localStorage.setItem(STORAGE_KEYS.USER_PREFERENCES, safeJsonStringify(updatedPrefs));
     return true;
   } catch (error) {
@@ -338,7 +344,7 @@ export const getStorageStats = () => {
 
     // Rough estimate of localStorage limit (5MB = 5,242,880 chars)
     const limit = 5242880;
-    
+
     return {
       available: true,
       used,
@@ -350,6 +356,33 @@ export const getStorageStats = () => {
     console.error('Failed to calculate storage stats:', error);
     return { available: false, used: 0, remaining: 0 };
   }
+};
+
+// KYC Status Management
+export const saveKYCStatus = (kycVerified: boolean, kycResult: any = null): boolean => {
+  return saveSessionData({ kycVerified, kycResult });
+};
+
+export const getKYCStatus = (): { kycVerified: boolean; kycResult: any | null } => {
+  const sessionData = getSessionData();
+  return {
+    kycVerified: sessionData.kycVerified || false,
+    kycResult: sessionData.kycResult || null
+  };
+};
+
+export const clearKYCStatus = (): boolean => {
+  return saveSessionData({ kycVerified: false, kycResult: null });
+};
+
+// Dashboard Progress Management
+export const markDashboardReached = (): boolean => {
+  return saveSessionData({ hasReachedDashboard: true });
+};
+
+export const hasUserReachedDashboard = (): boolean => {
+  const sessionData = getSessionData();
+  return sessionData.hasReachedDashboard || false;
 };
 
 // Export all for easy access
@@ -375,6 +408,11 @@ export const localStorage_utils = {
   getChainPreference,
   saveUserPreferences,
   getUserPreferences,
+  saveKYCStatus,
+  getKYCStatus,
+  clearKYCStatus,
+  markDashboardReached,
+  hasUserReachedDashboard,
   enableAutoSave,
   disableAutoSave,
   getStorageStats,

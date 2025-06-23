@@ -259,7 +259,10 @@ export class ContractService {
       return hash;
 
     } catch (error) {
-      console.error('❌ Failed to purchase time token:', error);
+      // Don't log user cancellations as errors
+      if (!(error instanceof Error && (error.message.includes('user rejected') || error.message.includes('User denied transaction')))) {
+        console.error('❌ Failed to purchase time token:', error);
+      }
 
       // Enhanced error logging
       if (error instanceof Error) {
@@ -270,13 +273,36 @@ export class ContractService {
         });
       }
 
+      // Enhanced error handling for better user experience
+      let userFriendlyMessage = 'Purchase failed';
+      let notificationTitle = '❌ Purchase Failed';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('User denied transaction') || error.message.includes('user rejected')) {
+          userFriendlyMessage = 'Transaction was cancelled by user';
+          notificationTitle = '⚠️ Transaction Cancelled';
+        } else if (error.message.includes('insufficient funds') || error.message.includes('balance')) {
+          userFriendlyMessage = 'Insufficient balance for this transaction';
+          notificationTitle = '💰 Insufficient Funds';
+        } else if (error.message.includes('gas')) {
+          userFriendlyMessage = 'Transaction failed due to gas estimation issues';
+        } else {
+          userFriendlyMessage = error.message;
+        }
+      }
+
       this.alertAgent.addNotification({
         type: 'system',
-        title: '❌ Purchase Failed',
-        message: error instanceof Error ? error.message : 'Purchase failed',
+        title: notificationTitle,
+        message: userFriendlyMessage,
         priority: 'high'
       });
 
+      // Modify the original error message for UI handling instead of creating a new error
+      if (error instanceof Error) {
+        error.message = userFriendlyMessage;
+      }
+      
       throw error;
     }
   }
