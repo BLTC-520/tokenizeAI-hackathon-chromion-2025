@@ -19,7 +19,7 @@ import ClientOnly from './components/ClientOnly';
 import NavigationHeader from './components/NavigationHeader';
 import { TokenSuggestion } from './services/tokenizeAgent';
 import { useTimeTokenizerStorage } from './hooks/useLocalStorage';
-import { UserAnswers } from './utils/localStorage';
+import { UserAnswers, getKYCStatus, saveKYCStatus, clearKYCStatus, localStorage_utils } from './utils/localStorage';
 import { isSupportedChain, getChainDisplayName } from './lib/wagmi';
 import { KYCResult } from './services/unifiedKycAgent';
 
@@ -42,6 +42,14 @@ export default function Home() {
   useEffect(() => {
     if (storage.isFullyLoaded) {
       console.log('📱 Initializing app from localStorage...');
+
+      // Restore KYC status from localStorage
+      const { kycVerified: storedKycVerified, kycResult: storedKycResult } = getKYCStatus();
+      if (storedKycVerified) {
+        console.log('🔐 Restoring KYC status from localStorage:', storedKycVerified);
+        setKycVerified(storedKycVerified);
+        setKycResult(storedKycResult);
+      }
 
       // Restore wallet data if connected
       if (isConnected && address) {
@@ -89,6 +97,11 @@ export default function Home() {
       hasPortfolioData,
     });
 
+    // Mark dashboard as reached if user is already on dashboard
+    if (currentAppState === 'dashboard') {
+      localStorage_utils.markDashboardReached();
+    }
+
     // Landing page logic
     if (!isConnected) {
       if (currentAppState !== 'landing') {
@@ -101,6 +114,7 @@ export default function Home() {
         console.log('🔐 Resetting KYC status - wallet disconnected');
         setKycVerified(false);
         setKycResult(null);
+        clearKYCStatus(); // Clear from localStorage too
       }
 
       return;
@@ -146,6 +160,7 @@ export default function Home() {
   const handleKYCAccessGranted = () => {
     console.log('🎉 KYC Access Granted - User can proceed to questionnaire');
     setKycVerified(true);
+    saveKYCStatus(true); // Save to localStorage
     storage.appState.updateAppState('questionnaire');
   };
 
@@ -154,6 +169,10 @@ export default function Home() {
     setKycResult(result);
     if (result.success) {
       setKycVerified(true);
+      saveKYCStatus(true, result); // Save to localStorage
+    } else {
+      setKycVerified(false);
+      saveKYCStatus(false, result); // Save failure to localStorage
     }
   };
 
@@ -214,11 +233,18 @@ export default function Home() {
 
   const handleViewDashboard = () => {
     console.log('📊 Navigating to dashboard');
+    localStorage_utils.markDashboardReached(); // Mark that user has reached dashboard for full navigation
     storage.appState.updateAppState('dashboard');
   };
 
   const handleHeaderNavigation = (state: string) => {
     console.log('🧭 Header navigation to:', state);
+
+    // Mark dashboard reached if navigating to dashboard
+    if (state === 'dashboard') {
+      localStorage_utils.markDashboardReached();
+    }
+
     storage.appState.updateAppState(state as AppState);
   };
 

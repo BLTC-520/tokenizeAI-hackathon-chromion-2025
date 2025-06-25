@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAccount, useChainId } from 'wagmi';
 import { getContractService, TimeToken } from '../services/contractService';
@@ -26,6 +26,10 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
   const [purchaseHours, setPurchaseHours] = useState(1);
   const [tokenPrices, setTokenPrices] = useState<Map<string, FormattedPrice>>(new Map());
   const [purchaseCost, setPurchaseCost] = useState<FormattedPrice | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
+  const [modalNotification, setModalNotification] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
+  const [isModalClosing, setIsModalClosing] = useState(false);
+  const modalClosingRef = useRef(false);
 
   const contractService = getContractService();
   const priceService = getPriceService();
@@ -74,7 +78,7 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
       }
 
       const allTokens = await Promise.all(tokenPromises);
-      const validTokens = allTokens.filter((token): token is TimeToken => 
+      const validTokens = allTokens.filter((token): token is TimeToken =>
         token !== null && token.isActive
       );
 
@@ -95,7 +99,7 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
     try {
       console.log('💰 Loading price data for tokens...');
       const priceMap = new Map<string, FormattedPrice>();
-      
+
       // Load prices for all tokens in parallel
       const pricePromises = tokensToLoad.map(async (token) => {
         try {
@@ -134,6 +138,8 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
       return;
     }
 
+    let shouldCloseModal = false;
+
     try {
       setIsPurchasing(true);
       console.log('🛒 Starting purchase process...');
@@ -144,7 +150,7 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
         purchaseHours,
         buyer: address
       });
-      
+
       // Validate purchase
       if (purchaseHours <= 0 || purchaseHours > Number(token.availableHours)) {
         throw new Error(`Invalid hours amount: ${purchaseHours}. Available: ${token.availableHours}`);
@@ -169,7 +175,7 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
       } catch (balanceError) {
         console.warn('Could not estimate gas:', balanceError);
       }
-      
+
       console.log('📝 Calling contract purchase function...');
       const txHash = await contractService.purchaseTimeToken({
         tokenId: token.tokenId,
@@ -179,6 +185,12 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
 
       console.log('✅ Purchase transaction successful:', txHash);
 
+      // Show success notification
+      setNotification({ type: 'success', message: `Successfully purchased ${purchaseHours}h of service!` });
+
+      // Auto-hide notification after 5 seconds
+      setTimeout(() => setNotification(null), 5000);
+
       // Reload marketplace data to reflect changes
       console.log('🔄 Reloading marketplace data...');
       await loadMarketplaceData();
@@ -187,27 +199,60 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
       setPurchaseCost(null); // Reset
 
     } catch (error) {
-      console.error('❌ Purchase failed:', error);
-      
-      // Show user-friendly error message
+      // Don't log to console for user cancellations - handle gracefully
+      if (!(error instanceof Error && (error.message.includes('user rejected') || error.message.includes('User denied transaction') || error.message.includes('cancelled by user')))) {
+        console.error('❌ Purchase failed:', error);
+      }
+
+      // Show user-friendly error message and add notification
       let errorMessage = 'Purchase failed. Please try again.';
+
       if (error instanceof Error) {
-        if (error.message.includes('user rejected')) {
-          errorMessage = 'Transaction was rejected by user.';
-        } else if (error.message.includes('insufficient funds')) {
-          errorMessage = 'Insufficient funds for this transaction.';
+        if (error.message.includes('user rejected') || error.message.includes('User denied transaction')) {
+          errorMessage = 'Transaction was cancelled by user.';
+          shouldCloseModal = true; // Close modal on user cancellation
+        } else if (error.message.includes('insufficient funds') || error.message.includes('balance')) {
+          errorMessage = 'Insufficient balance for this transaction.';
+          shouldCloseModal = true; // Close modal on insufficient funds
         } else if (error.message.includes('Invalid hours')) {
           errorMessage = error.message;
         } else if (error.message.includes('expired')) {
           errorMessage = 'This token has expired.';
         }
       }
-      
-      // You could add a toast notification here
-      alert(errorMessage);
-      
+
+      // Show notification in modal if it's staying open, otherwise show general notification
+      if (shouldCloseModal) {
+        setNotification({ type: 'error', message: errorMessage });
+        setTimeout(() => setNotification(null), 5000);
+      } else {
+        setModalNotification({ type: 'error', message: errorMessage });
+        setTimeout(() => setModalNotification(null), 5000);
+      }
+
+      // Close modal and reset state for certain error types
+      if (shouldCloseModal) {
+        console.log('🚪 Closing modal due to error:', errorMessage);
+        setIsModalClosing(true);
+        modalClosingRef.current = true;
+        setSelectedToken(null);
+        setPurchaseHours(1);
+        setPurchaseCost(null);
+        // Delay data reload and reset modal closing flag
+        setTimeout(() => {
+          console.log('🔄 Reloading data and resetting modal flags');
+          loadMarketplaceData();
+          setIsModalClosing(false);
+          modalClosingRef.current = false;
+        }, 300);
+      }
+
     } finally {
       setIsPurchasing(false);
+      // Only reload marketplace data if modal is staying open
+      if (!shouldCloseModal) {
+        loadMarketplaceData();
+      }
     }
   };
 
@@ -215,9 +260,9 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
     switch (filter) {
       case 'available':
         // Only show tokens that can be purchased (not owned by current user)
-        return Number(token.availableHours) > 0 && 
-               !contractService.isTokenExpired(token.validUntil) &&
-               token.creator.toLowerCase() !== address?.toLowerCase();
+        return Number(token.availableHours) > 0 &&
+          !contractService.isTokenExpired(token.validUntil) &&
+          token.creator.toLowerCase() !== address?.toLowerCase();
       case 'my_tokens':
         return token.creator.toLowerCase() === address?.toLowerCase();
       default:
@@ -269,6 +314,36 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-blue-500 to-purple-600 p-8">
+      {/* Toast Notifications */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: -50, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: -50, x: '-50%' }}
+            className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded-xl font-medium shadow-lg backdrop-blur-lg border ${notification.type === 'success'
+              ? 'bg-green-500/20 text-green-100 border-green-500/50'
+              : notification.type === 'error'
+                ? 'bg-red-500/20 text-red-100 border-red-500/50'
+                : 'bg-blue-500/20 text-blue-100 border-blue-500/50'
+              }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-xl">
+                {notification.type === 'success' ? '✅' : notification.type === 'error' ? '❌' : 'ℹ️'}
+              </span>
+              {notification.message}
+              <button
+                onClick={() => setNotification(null)}
+                className="ml-2 text-white/70 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
@@ -352,11 +427,10 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
               <button
                 key={filterOption.key}
                 onClick={() => setFilter(filterOption.key as any)}
-                className={`px-4 py-2 rounded-xl font-medium transition-all ${
-                  filter === filterOption.key
-                    ? 'bg-white text-purple-600'
-                    : 'text-white hover:bg-white/10'
-                }`}
+                className={`px-4 py-2 rounded-xl font-medium transition-all ${filter === filterOption.key
+                  ? 'bg-white text-purple-600'
+                  : 'text-white hover:bg-white/10'
+                  }`}
               >
                 {filterOption.label} ({filterOption.count})
               </button>
@@ -370,8 +444,8 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
             <div className="text-6xl mb-4">📭</div>
             <h3 className="text-2xl font-bold text-white mb-2">No Tokens Found</h3>
             <p className="text-white/70 mb-6">
-              {filter === 'my_tokens' 
-                ? 'You haven\'t created any tokens yet.' 
+              {filter === 'my_tokens'
+                ? 'You haven\'t created any tokens yet.'
                 : 'No active tokens match your current filter.'
               }
             </p>
@@ -390,19 +464,26 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
               const isOwnToken = token.creator.toLowerCase() === address?.toLowerCase();
               const canPurchase = !isOwnToken && !isExpired(token.validUntil) && Number(token.availableHours) > 0;
               const priceData = tokenPrices.get(token.tokenId);
-              
+
               return (
                 <motion.div
                   key={token.tokenId}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className={`bg-white/10 backdrop-blur-lg rounded-3xl p-6 border transition-all relative ${
-                    isExpired(token.validUntil) ? 'border-red-500/30' : 
+                  className={`bg-white/10 backdrop-blur-lg rounded-3xl p-6 border transition-all relative ${isExpired(token.validUntil) ? 'border-red-500/30' :
                     canPurchase ? 'border-green-500/50 hover:border-green-400 hover:bg-white/15 cursor-pointer' :
-                    'border-white/20'
-                  }`}
-                  onClick={() => canPurchase && setSelectedToken(token)}
+                      'border-white/20'
+                    }`}
+                  onClick={() => {
+                    console.log('🔍 Card clicked:', { canPurchase, isModalClosing, modalClosingRefCurrent: modalClosingRef.current, tokenName: token.serviceName });
+                    if (canPurchase && !isModalClosing && !modalClosingRef.current) {
+                      console.log('✅ Opening modal for token:', token.serviceName);
+                      setSelectedToken(token);
+                    } else {
+                      console.log('❌ Modal opening blocked');
+                    }
+                  }}
                 >
                   {/* Purchase Badge for purchasable tokens */}
                   {canPurchase && (
@@ -418,17 +499,16 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
                         by {isOwnToken ? 'You' : `${token.creator.slice(0, 6)}...${token.creator.slice(-4)}`}
                       </p>
                     </div>
-                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      isExpired(token.validUntil) 
-                        ? 'bg-red-500/20 text-red-400' 
+                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${isExpired(token.validUntil)
+                      ? 'bg-red-500/20 text-red-400'
+                      : Number(token.availableHours) > 0
+                        ? 'bg-green-500/20 text-green-400'
+                        : 'bg-yellow-500/20 text-yellow-400'
+                      }`}>
+                      {isExpired(token.validUntil)
+                        ? 'Expired'
                         : Number(token.availableHours) > 0
-                          ? 'bg-green-500/20 text-green-400'
-                          : 'bg-yellow-500/20 text-yellow-400'
-                    }`}>
-                      {isExpired(token.validUntil) 
-                        ? 'Expired' 
-                        : Number(token.availableHours) > 0 
-                          ? 'Available' 
+                          ? 'Available'
                           : 'Sold Out'
                       }
                     </div>
@@ -463,20 +543,26 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
                     <div className="text-white/60 text-sm">
                       Token #{token.tokenId}
                     </div>
-                    
+
                     {/* Purchase Button for purchasable tokens */}
                     {canPurchase && (
                       <button
                         className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all transform hover:scale-105 shadow-lg"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedToken(token);
+                          console.log('🔍 BUY NOW clicked:', { isModalClosing, modalClosingRefCurrent: modalClosingRef.current, tokenName: token.serviceName });
+                          if (!isModalClosing && !modalClosingRef.current) {
+                            console.log('✅ Opening modal via BUY NOW for token:', token.serviceName);
+                            setSelectedToken(token);
+                          } else {
+                            console.log('❌ BUY NOW modal opening blocked');
+                          }
                         }}
                       >
                         🛒 BUY NOW
                       </button>
                     )}
-                    
+
                     {/* Your Token indicator */}
                     {isOwnToken && (
                       <div className="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-lg text-sm font-medium">
@@ -502,6 +588,9 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
                 setSelectedToken(null);
                 setPurchaseHours(1);
                 setPurchaseCost(null);
+                setModalNotification(null);
+                setIsModalClosing(false);
+                modalClosingRef.current = false;
               }}
             >
               <motion.div
@@ -511,8 +600,39 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
                 className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 max-w-md w-full border border-white/20"
                 onClick={(e) => e.stopPropagation()}
               >
-                <h2 className="text-2xl font-bold text-white mb-4">{selectedToken.serviceName}</h2>
+                {/* Modal Notification */}
+                <AnimatePresence>
+                  {modalNotification && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      className={`mb-4 px-4 py-3 rounded-xl font-medium shadow-lg border ${
+                        modalNotification.type === 'success' 
+                          ? 'bg-green-500/20 text-green-100 border-green-500/50' 
+                          : modalNotification.type === 'error'
+                          ? 'bg-red-500/20 text-red-100 border-red-500/50'
+                          : 'bg-blue-500/20 text-blue-100 border-blue-500/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">
+                          {modalNotification.type === 'success' ? '✅' : modalNotification.type === 'error' ? '❌' : 'ℹ️'}
+                        </span>
+                        {modalNotification.message}
+                        <button
+                          onClick={() => setModalNotification(null)}
+                          className="ml-auto text-white/70 hover:text-white transition-colors"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 
+                <h2 className="text-2xl font-bold text-white mb-4">{selectedToken.serviceName}</h2>
+
                 <div className="space-y-4 mb-6">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
@@ -542,34 +662,34 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
                     </div>
                   </div>
 
-                  {selectedToken.creator.toLowerCase() !== address?.toLowerCase() && 
-                   !isExpired(selectedToken.validUntil) && 
-                   Number(selectedToken.availableHours) > 0 && (
-                    <div className="bg-white/5 rounded-2xl p-4">
-                      <label className="block text-white/80 font-medium mb-2">Hours to Purchase</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max={Number(selectedToken.availableHours)}
-                        value={purchaseHours}
-                        onChange={(e) => setPurchaseHours(parseInt(e.target.value) || 1)}
-                        className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-white/50"
-                      />
-                      <div className="mt-2 text-white/70 text-sm">
-                        <div className="font-semibold">Total Cost:</div>
-                        {purchaseCost ? (
-                          <div>
-                            <div className="text-white font-bold text-lg">{purchaseCost.crypto}</div>
-                            {purchaseCost.usd !== 'Cost calculation failed' && (
-                              <div className="text-white/60 text-sm">{purchaseCost.usd}</div>
-                            )}
-                          </div>
-                        ) : (
-                          <div>Calculating...</div>
-                        )}
+                  {selectedToken.creator.toLowerCase() !== address?.toLowerCase() &&
+                    !isExpired(selectedToken.validUntil) &&
+                    Number(selectedToken.availableHours) > 0 && (
+                      <div className="bg-white/5 rounded-2xl p-4">
+                        <label className="block text-white/80 font-medium mb-2">Hours to Purchase</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max={Number(selectedToken.availableHours)}
+                          value={purchaseHours}
+                          onChange={(e) => setPurchaseHours(parseInt(e.target.value) || 1)}
+                          className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-white/50"
+                        />
+                        <div className="mt-2 text-white/70 text-sm">
+                          <div className="font-semibold">Total Cost:</div>
+                          {purchaseCost ? (
+                            <div>
+                              <div className="text-white font-bold text-lg">{purchaseCost.crypto}</div>
+                              {purchaseCost.usd !== 'Cost calculation failed' && (
+                                <div className="text-white/60 text-sm">{purchaseCost.usd}</div>
+                              )}
+                            </div>
+                          ) : (
+                            <div>Calculating...</div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
                 </div>
 
                 <div className="flex gap-4">
@@ -578,31 +698,34 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
                       setSelectedToken(null);
                       setPurchaseHours(1);
                       setPurchaseCost(null);
+                      setModalNotification(null);
+                      setIsModalClosing(false);
+                      modalClosingRef.current = false;
                     }}
                     className="flex-1 bg-white/20 hover:bg-white/30 text-white py-3 px-6 rounded-xl font-medium transition-all"
                   >
                     Close
                   </button>
-                  {selectedToken.creator.toLowerCase() !== address?.toLowerCase() && 
-                   !isExpired(selectedToken.validUntil) && 
-                   Number(selectedToken.availableHours) > 0 && (
-                    <button
-                      onClick={() => handlePurchaseToken(selectedToken)}
-                      disabled={isPurchasing || !isConnected}
-                      className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 disabled:from-gray-500 disabled:to-gray-600 text-white py-4 px-8 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg"
-                    >
-                      {isPurchasing ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                          Processing...
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center gap-2">
-                          🛒 Purchase {purchaseHours}h for {purchaseCost?.crypto || 'Calculating...'}
-                        </div>
-                      )}
-                    </button>
-                  )}
+                  {selectedToken.creator.toLowerCase() !== address?.toLowerCase() &&
+                    !isExpired(selectedToken.validUntil) &&
+                    Number(selectedToken.availableHours) > 0 && (
+                      <button
+                        onClick={() => handlePurchaseToken(selectedToken)}
+                        disabled={isPurchasing || !isConnected}
+                        className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 disabled:from-gray-500 disabled:to-gray-600 text-white py-4 px-8 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg"
+                      >
+                        {isPurchasing ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                            Processing...
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center gap-2">
+                            🛒 Purchase {purchaseHours}h for {purchaseCost?.crypto || 'Calculating...'}
+                          </div>
+                        )}
+                      </button>
+                    )}
                 </div>
               </motion.div>
             </motion.div>
