@@ -10,13 +10,14 @@ import StorageDebug from './components/StorageDebug';
 import ChainSwitcher from './components/ChainSwitcher';
 import ScrollableLanding from './components/ScrollableLanding';
 import AutoKYC from './components/AutoKYC';
-import { PortfolioData } from './services/elizaAgent';
+import { PortfolioData } from './services/geminiPortfolioAgent';
 import TokenizationModeSelector from './components/TokenizationModeSelector';
 import TokenCreation from './components/TokenCreation';
 import Marketplace from './components/Marketplace';
 import Dashboard from './components/Dashboard';
 import ClientOnly from './components/ClientOnly';
 import NavigationHeader from './components/NavigationHeader';
+import AIChatAssistant from './components/AIChatAssistant';
 import { TokenSuggestion } from './services/tokenizeAgent';
 import { useTimeTokenizerStorage } from './hooks/useLocalStorage';
 import { UserAnswers, getKYCStatus, saveKYCStatus, clearKYCStatus, localStorage_utils } from './utils/localStorage';
@@ -284,15 +285,6 @@ export default function Home() {
           />
         )}
 
-        {/* Debug Info - Remove in production */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="fixed top-4 right-4 bg-white/10 backdrop-blur-lg border border-white/20 text-white p-2 rounded text-xs z-50">
-            State: {currentAppState} | Connected: {isConnected ? '✅' : '❌'} |
-            Chain: {chainId ? getChainDisplayName(chainId) : 'None'} |
-            KYC: {kycVerified ? '✅' : '❌'} |
-            Answers: {userAnswers ? '✅' : '❌'} | Portfolio: {portfolioData ? '✅' : '❌'}
-          </div>
-        )}
 
         {/* Chain Warning */}
         {showChainWarning && (
@@ -334,10 +326,12 @@ export default function Home() {
         )}
 
         {currentAppState === 'processing' && userAnswers && (
-          <ProcessingState
-            userAnswers={userAnswers}
-            onComplete={handleProcessingComplete}
-          />
+          <div className="pt-20">
+            <ProcessingState
+              userAnswers={userAnswers}
+              onComplete={handleProcessingComplete}
+            />
+          </div>
         )}
 
         {currentAppState === 'portfolio' && userAnswers && portfolioData && (
@@ -393,6 +387,14 @@ export default function Home() {
 
         {/* Debug Panel - Development Only */}
         {process.env.NODE_ENV === 'development' && <StorageDebug />}
+
+        {/* AI Chat Assistant - Available on all states except landing */}
+        {currentAppState !== 'landing' && (
+          <AIChatAssistant
+            currentAppState={currentAppState}
+            onStateChange={handleHeaderNavigation}
+          />
+        )}
       </div>
     </ClientOnly>
   );

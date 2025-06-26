@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { elizaPortfolioAgent, PortfolioData } from '../services/elizaAgent';
+import { elizaPortfolioAgent, PortfolioData } from '../services/geminiPortfolioAgent';
 
 interface UserAnswers {
   name: string;
@@ -46,7 +46,7 @@ export default function ProcessingState({ userAnswers, onComplete }: ProcessingS
       setIsGeneratingPortfolio(true);
       
       try {
-        console.log('🤖 Initializing ElizaOS Portfolio Maker Agent...');
+        console.log('🤖 Initializing Google Gemini Portfolio Agent...');
         const portfolioData = await elizaPortfolioAgent.generatePortfolio(userAnswers);
         console.log('✅ Portfolio generated successfully:', portfolioData);
         
@@ -69,20 +69,37 @@ export default function ProcessingState({ userAnswers, onComplete }: ProcessingS
   }, [userAnswers, onComplete]);
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+    <motion.div 
+      className="min-h-screen flex items-center justify-center p-4"
+      animate={{
+        background: [
+          "linear-gradient(45deg, #667eea 0%, #764ba2 100%)",
+          "linear-gradient(45deg, #f093fb 0%, #f5576c 100%)",
+          "linear-gradient(45deg, #4facfe 0%, #00f2fe 100%)",
+          "linear-gradient(45deg, #43e97b 0%, #38f9d7 100%)",
+          "linear-gradient(45deg, #fa709a 0%, #fee140 100%)",
+          "linear-gradient(45deg, #667eea 0%, #764ba2 100%)"
+        ]
+      }}
+      transition={{
+        duration: 15,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }}
+    >
       <div className="w-full max-w-2xl text-center">
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="bg-gray-50 border border-gray-200 rounded-lg p-8"
+          className="bg-white/90 backdrop-blur-sm border border-white/20 rounded-lg p-8 shadow-2xl"
         >
           {/* Main Title */}
           <motion.h1
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="text-4xl md:text-5xl font-bold text-black mb-4"
+            className="text-4xl md:text-5xl font-bold text-gray-800 mb-4"
           >
             Creating Your Smart Portfolio
           </motion.h1>
@@ -110,15 +127,32 @@ export default function ProcessingState({ userAnswers, onComplete }: ProcessingS
               }}
               className="w-32 h-32 mx-auto mb-8 relative"
             >
-              <div className="w-full h-full bg-black rounded-full flex items-center justify-center">
+              <motion.div 
+                className="w-full h-full rounded-full flex items-center justify-center"
+                animate={{
+                  background: [
+                    "linear-gradient(45deg, #667eea, #764ba2)",
+                    "linear-gradient(45deg, #f093fb, #f5576c)",
+                    "linear-gradient(45deg, #4facfe, #00f2fe)",
+                    "linear-gradient(45deg, #43e97b, #38f9d7)",
+                    "linear-gradient(45deg, #fa709a, #fee140)",
+                    "linear-gradient(45deg, #667eea, #764ba2)"
+                  ]
+                }}
+                transition={{
+                  duration: 8,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              >
                 <span className="text-5xl text-white">🤖</span>
-              </div>
+              </motion.div>
               
               {/* Orbiting dots */}
               {[0, 1, 2].map((index) => (
                 <motion.div
                   key={index}
-                  className="absolute w-4 h-4 bg-black rounded-full"
+                  className="absolute w-4 h-4 bg-white/80 rounded-full shadow-lg"
                   style={{
                     top: '50%',
                     left: '50%',
@@ -199,7 +233,7 @@ export default function ProcessingState({ userAnswers, onComplete }: ProcessingS
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1 }}
-            className="mt-8 p-4 bg-gray-100 border border-gray-200 rounded-lg"
+            className="mt-8 p-4 bg-white/60 backdrop-blur-sm border border-white/30 rounded-lg"
           >
             <div className="flex items-center justify-center space-x-2 text-gray-700">
               <motion.div
@@ -210,8 +244,8 @@ export default function ProcessingState({ userAnswers, onComplete }: ProcessingS
               </motion.div>
               <span>
                 {isGeneratingPortfolio 
-                  ? "ElizaOS Agent is analyzing your profile..." 
-                  : "ElizaOS Portfolio Maker Agent is working..."
+                  ? "Google Gemini Agent is analyzing your profile..." 
+                  : "AI Portfolio Agent is working..."
                 }
               </span>
               <motion.div
@@ -240,6 +274,6 @@ export default function ProcessingState({ userAnswers, onComplete }: ProcessingS
           </motion.div>
         </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }

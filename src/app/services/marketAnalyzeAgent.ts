@@ -1,7 +1,7 @@
 // src/agents/marketAnalyzeAgent.ts
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { ethers } from 'ethers';
+import { createPublicClient, http, PublicClient, getContract } from 'viem';
 
 import {
   GETSKILLPRICE_ABI,
@@ -78,8 +78,8 @@ class MarketAnalyzeAgent {
   private isInitialized = false;
   private genAI: GoogleGenerativeAI | null = null;
   private model: any = null;
-  private provider: any = null;  // Use any type to avoid version issues
-  private contract: ethers.Contract | null = null;
+  private publicClient: PublicClient | null = null;
+  private contract: any = null;
   private dataCache: Map<string, { data: any; timestamp: number }> = new Map();
   private rateLimitTracker: Map<string, number> = new Map();
 
@@ -121,17 +121,11 @@ class MarketAnalyzeAgent {
         throw new Error('RPC URL not configured');
       }
 
-      // Compatible with ethers v5 and v6
-      try {
-        // Try ethers v5
-        this.provider = new (ethers as any).providers.JsonRpcProvider(rpcUrl);
-      } catch (v5Error) {
-        // Try ethers v6
-        this.provider = new (ethers as any).JsonRpcProvider(rpcUrl);
-      }
+      this.publicClient = createPublicClient({
+        transport: http(rpcUrl),
+      });
 
-      const network = await this.provider.getNetwork();
-      const chainId = network.chainId ? network.chainId.toString() : 'unknown';
+      const chainId = await this.publicClient.getChainId();
       console.log(`🌐 Connected to network (Chain ID: ${chainId})`);
 
       return true;
@@ -239,7 +233,7 @@ class MarketAnalyzeAgent {
   private async tryContractData(contractAddress: string, userSkills: string[]): Promise<any> {
     try {
       // Initialize Web3 connection
-      if (!this.provider) {
+      if (!this.publicClient) {
         const initialized = await this.initializeWeb3();
         if (!initialized) {
           throw new Error('Failed to initialize Web3 provider');
@@ -247,11 +241,15 @@ class MarketAnalyzeAgent {
       }
 
       // Connect to contract
-      this.contract = new ethers.Contract(contractAddress, GETSKILLPRICE_ABI, this.provider);
+      this.contract = getContract({
+        address: contractAddress as `0x${string}`,
+        abi: GETSKILLPRICE_ABI,
+        client: this.publicClient,
+      });
       console.log('📋 Contract connected successfully');
 
       // Get contract data
-      const rawSkillsData = await this.contract!.getSkillsData();
+      const rawSkillsData = await this.contract.read.getSkillsData();
       console.log(`📄 Raw contract data length: ${rawSkillsData ? rawSkillsData.length : 0}`);
 
       if (rawSkillsData && rawSkillsData !== "" && rawSkillsData !== "no data") {
