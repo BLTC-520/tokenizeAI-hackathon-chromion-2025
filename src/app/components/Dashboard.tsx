@@ -41,6 +41,8 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
   });
   const [recentActivity, setRecentActivity] = useState<AlertNotification[]>([]);
   const [avaxPriceUSD, setAvaxPriceUSD] = useState<number>(0);
+  const [selectedToken, setSelectedToken] = useState<TimeToken | null>(null);
+  const [showTokenModal, setShowTokenModal] = useState(false);
 
   const contractService = getContractService();
   const alertAgent = getAlertAgent();
@@ -99,7 +101,8 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
         contractService.getTimeToken(id.toString())
       );
       const purchasedTokensData = await Promise.all(purchasedTokensPromises);
-      const validPurchasedTokens = purchasedTokensData.filter((token): token is TimeToken => token !== null);
+      // Load purchased tokens with balance information
+      const validPurchasedTokens = await contractService.getBuyerTokensWithBalances(address);
 
       setCreatedTokens(validCreatedTokens);
       setPurchasedTokens(validPurchasedTokens);
@@ -160,6 +163,16 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
     } catch (error) {
       console.error('❌ Failed to deactivate token:', error);
     }
+  };
+
+  const handleViewServiceDetails = (token: TimeToken) => {
+    setSelectedToken(token);
+    setShowTokenModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowTokenModal(false);
+    setSelectedToken(null);
   };
 
   const formatPrice = (priceWei: bigint) => {
@@ -488,7 +501,10 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
                               Deactivate
                             </button>
                           )}
-                          <button className="flex-1 bg-white/20 hover:bg-white/30 text-white py-2 px-4 rounded-xl text-sm font-medium transition-all">
+                          <button 
+                            onClick={() => handleViewServiceDetails(token)}
+                            className="flex-1 bg-white/20 hover:bg-white/30 text-white py-2 px-4 rounded-xl text-sm font-medium transition-all"
+                          >
                             View Details
                           </button>
                         </div>
@@ -556,12 +572,27 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
                           <div className="text-white font-bold">${formatPrice(token.pricePerHour)}</div>
                         </div>
                         <div>
+                          <div className="text-white/60 text-xs">Hours Purchased</div>
+                          <div className="text-green-400 font-bold">
+                            {token.purchasedHours ? token.purchasedHours.toString() + 'h' : '0h'}
+                          </div>
+                        </div>
+                        <div>
                           <div className="text-white/60 text-xs">Valid Until</div>
                           <div className="text-white font-bold">{formatValidUntil(token.validUntil)}</div>
                         </div>
+                        <div>
+                          <div className="text-white/60 text-xs">Purchase Date</div>
+                          <div className="text-white font-bold">
+                            {token.purchaseTimestamp ? new Date(token.purchaseTimestamp).toLocaleDateString() : 'N/A'}
+                          </div>
+                        </div>
                       </div>
 
-                      <button className="w-full bg-white/20 hover:bg-white/30 text-white py-3 px-4 rounded-xl font-medium transition-all">
+                      <button 
+                        onClick={() => handleViewServiceDetails(token)}
+                        className="w-full bg-white/20 hover:bg-white/30 text-white py-3 px-4 rounded-xl font-medium transition-all"
+                      >
                         View Service Details
                       </button>
                     </motion.div>
@@ -685,6 +716,241 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
           )}
         </motion.div>
       </div>
+
+      {/* Service Details Modal */}
+      <AnimatePresence>
+        {showTokenModal && selectedToken && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            onClick={handleCloseModal}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-gradient-to-br from-purple-500/20 to-blue-600/20 backdrop-blur-lg rounded-3xl p-8 border border-white/20 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-2">{selectedToken.serviceName}</h2>
+                  <p className="text-white/60">Token #{selectedToken.tokenId}</p>
+                </div>
+                <button
+                  onClick={handleCloseModal}
+                  className="text-white/60 hover:text-white text-2xl"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Service Provider Info */}
+              <div className="bg-white/10 rounded-2xl p-6 mb-6">
+                <h3 className="text-white font-bold text-lg mb-4">🔹 Service Provider</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Creator Address:</span>
+                    <span className="text-white font-mono text-sm">
+                      {selectedToken.creator.slice(0, 6)}...{selectedToken.creator.slice(-4)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Token Status:</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      !selectedToken.isActive ? 'text-gray-400 bg-gray-500/20' :
+                      isExpired(selectedToken.validUntil) ? 'text-red-400 bg-red-500/20' :
+                      Number(selectedToken.availableHours) === 0 ? 'text-yellow-400 bg-yellow-500/20' :
+                      'text-green-400 bg-green-500/20'
+                    }`}>
+                      {!selectedToken.isActive ? 'Deactivated' :
+                       isExpired(selectedToken.validUntil) ? 'Expired' :
+                       Number(selectedToken.availableHours) === 0 ? 'Sold Out' : 'Active'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Purchase Details or Performance Details */}
+              {selectedToken.purchasedHours !== undefined ? (
+                // Show purchase details for purchased tokens
+                <div className="bg-white/10 rounded-2xl p-6 mb-6">
+                  <h3 className="text-white font-bold text-lg mb-4">🛒 Your Purchase Details</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-white/60 text-sm">Hours Purchased</div>
+                      <div className="text-green-400 font-bold text-xl">
+                        {selectedToken.purchasedHours ? selectedToken.purchasedHours.toString() + 'h' : '0h'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-white/60 text-sm">Total Cost</div>
+                      <div className="text-white font-bold text-xl">
+                        ${selectedToken.purchasedHours ? 
+                          (Number(selectedToken.purchasedHours) * parseFloat(formatPrice(selectedToken.pricePerHour))).toFixed(2) : 
+                          '0.00'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-white/60 text-sm">Purchase Date</div>
+                      <div className="text-white font-bold">
+                        {selectedToken.purchaseTimestamp ? 
+                          new Date(selectedToken.purchaseTimestamp).toLocaleDateString() : 
+                          'N/A'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-white/60 text-sm">Valid Until</div>
+                      <div className="text-white font-bold">
+                        {formatValidUntil(selectedToken.validUntil)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Show performance details for created tokens
+                <div className="bg-white/10 rounded-2xl p-6 mb-6">
+                  <h3 className="text-white font-bold text-lg mb-4">📊 Token Performance</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-white/60 text-sm">Hours Sold</div>
+                      <div className="text-green-400 font-bold text-xl">
+                        {(Number(selectedToken.totalHours) - Number(selectedToken.availableHours))}h
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-white/60 text-sm">Total Earnings</div>
+                      <div className="text-white font-bold text-xl">
+                        ${((Number(selectedToken.totalHours) - Number(selectedToken.availableHours)) * parseFloat(formatPrice(selectedToken.pricePerHour))).toFixed(2)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-white/60 text-sm">Creation Date</div>
+                      <div className="text-white font-bold">
+                        {new Date().toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-white/60 text-sm">Completion Rate</div>
+                      <div className="text-white font-bold">
+                        {((Number(selectedToken.totalHours) - Number(selectedToken.availableHours)) / Number(selectedToken.totalHours) * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Service Details */}
+              <div className="bg-white/10 rounded-2xl p-6 mb-6">
+                <h3 className="text-white font-bold text-lg mb-4">📋 Service Details</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-white/60 text-sm">Price per Hour</div>
+                    <div className="text-white font-bold">${formatPrice(selectedToken.pricePerHour)}</div>
+                  </div>
+                  <div>
+                    <div className="text-white/60 text-sm">Total Hours Available</div>
+                    <div className="text-white font-bold">{selectedToken.totalHours.toString()}h</div>
+                  </div>
+                  <div>
+                    <div className="text-white/60 text-sm">Hours Remaining</div>
+                    <div className="text-white font-bold">{selectedToken.availableHours.toString()}h</div>
+                  </div>
+                  <div>
+                    <div className="text-white/60 text-sm">Hours Sold</div>
+                    <div className="text-green-400 font-bold">
+                      {(Number(selectedToken.totalHours) - Number(selectedToken.availableHours))}h
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Next Steps */}
+              <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-2xl p-6 border border-blue-500/30">
+                <h3 className="text-white font-bold text-lg mb-4">📞 Next Steps</h3>
+                <div className="space-y-3">
+                  {selectedToken.purchasedHours !== undefined ? (
+                    // Steps for purchased tokens
+                    <>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">💬</span>
+                        <div>
+                          <div className="text-white font-medium">Contact Service Provider</div>
+                          <div className="text-white/70 text-sm">
+                            Reach out to coordinate your {selectedToken.purchasedHours?.toString() || '0'} hours of service
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">📅</span>
+                        <div>
+                          <div className="text-white font-medium">Schedule Your Sessions</div>
+                          <div className="text-white/70 text-sm">
+                            Plan how to use your purchased time before {formatValidUntil(selectedToken.validUntil)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">✅</span>
+                        <div>
+                          <div className="text-white font-medium">Service Completion</div>
+                          <div className="text-white/70 text-sm">
+                            Provider will mark hours as completed when service is delivered
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    // Steps for created tokens
+                    <>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">📢</span>
+                        <div>
+                          <div className="text-white font-medium">Promote Your Service</div>
+                          <div className="text-white/70 text-sm">
+                            Share your token in the marketplace to attract buyers
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">💼</span>
+                        <div>
+                          <div className="text-white font-medium">Deliver Quality Service</div>
+                          <div className="text-white/70 text-sm">
+                            Maintain high standards to build reputation and repeat business
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">📊</span>
+                        <div>
+                          <div className="text-white font-medium">Track Performance</div>
+                          <div className="text-white/70 text-sm">
+                            Monitor sales and adjust pricing or duration as needed
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <div className="flex justify-center mt-6">
+                <button
+                  onClick={handleCloseModal}
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white px-8 py-3 rounded-xl font-medium transition-all"
+                >
+                  Close Details
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
