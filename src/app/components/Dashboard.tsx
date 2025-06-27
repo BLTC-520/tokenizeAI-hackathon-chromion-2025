@@ -40,9 +40,33 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
     completedServices: 0
   });
   const [recentActivity, setRecentActivity] = useState<AlertNotification[]>([]);
+  const [avaxPriceUSD, setAvaxPriceUSD] = useState<number>(0);
+  const [selectedToken, setSelectedToken] = useState<TimeToken | null>(null);
+  const [showTokenModal, setShowTokenModal] = useState(false);
 
   const contractService = getContractService();
   const alertAgent = getAlertAgent();
+
+  // Function to fetch current AVAX price in USD
+  const fetchAvaxPrice = async (): Promise<number> => {
+    try {
+      console.log('💰 Fetching AVAX price...');
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=avalanche-2&vs_currencies=usd');
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch AVAX price');
+      }
+
+      const data = await response.json();
+      const price = data['avalanche-2']?.usd || 0;
+      console.log('💰 Current AVAX price:', price, 'USD');
+      return price;
+    } catch (error) {
+      console.error('❌ Failed to fetch AVAX price:', error);
+      // Return a fallback price or 0 if API fails
+      return 40; // Fallback price - you can adjust this or use a cached price
+    }
+  };
 
   useEffect(() => {
     if (isConnected && address && isSupportedChain(chainId)) {
@@ -59,9 +83,13 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
       setLoading(true);
       console.log('📊 Loading dashboard data for:', address);
 
+      // Fetch AVAX price first
+      const currentAvaxPrice = await fetchAvaxPrice();
+      setAvaxPriceUSD(currentAvaxPrice);
+
       // Load created tokens
       const createdTokenIds = await contractService.getCreatorTokens(address);
-      const createdTokensPromises = createdTokenIds.map(id => 
+      const createdTokensPromises = createdTokenIds.map(id =>
         contractService.getTimeToken(id.toString())
       );
       const createdTokensData = await Promise.all(createdTokensPromises);
@@ -69,28 +97,38 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
 
       // Load purchased tokens
       const purchasedTokenIds = await contractService.getBuyerTokens(address);
-      const purchasedTokensPromises = purchasedTokenIds.map(id => 
+      const purchasedTokensPromises = purchasedTokenIds.map(id =>
         contractService.getTimeToken(id.toString())
       );
       const purchasedTokensData = await Promise.all(purchasedTokensPromises);
-      const validPurchasedTokens = purchasedTokensData.filter((token): token is TimeToken => token !== null);
+      // Load purchased tokens with balance information
+      const validPurchasedTokens = await contractService.getBuyerTokensWithBalances(address);
 
       setCreatedTokens(validCreatedTokens);
       setPurchasedTokens(validPurchasedTokens);
 
-      // Calculate stats
+      // Calculate stats with USD conversion
       const dashboardStats: DashboardStats = {
         totalTokensCreated: validCreatedTokens.length,
         totalTokensPurchased: validPurchasedTokens.length,
+
+        // Convert totalEarnings from AVAX to USD
         totalEarnings: validCreatedTokens.reduce((total, token) => {
           const soldHours = Number(token.totalHours) - Number(token.availableHours);
-          return total + (soldHours * parseFloat(formatEther(token.pricePerHour)));
+          const avaxAmount = soldHours * parseFloat(formatEther(token.pricePerHour));
+          const usdAmount = avaxAmount * currentAvaxPrice;
+          return total + usdAmount;
         }, 0),
+
+        // Convert totalSpent from AVAX to USD
         totalSpent: validPurchasedTokens.reduce((total, token) => {
           // Simplified calculation - in production, track actual purchase amounts
-          return total + (10 * parseFloat(formatEther(token.pricePerHour))); // Assume average 10 hours purchased
+          const avaxAmount = 10 * parseFloat(formatEther(token.pricePerHour)); // Assume average 10 hours purchased
+          const usdAmount = avaxAmount * currentAvaxPrice;
+          return total + usdAmount;
         }, 0),
-        activeTokens: validCreatedTokens.filter(token => 
+
+        activeTokens: validCreatedTokens.filter(token =>
           token.isActive && Number(token.availableHours) > 0 && !contractService.isTokenExpired(token.validUntil)
         ).length,
         completedServices: validCreatedTokens.reduce((total, token) => {
@@ -105,6 +143,7 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
       setRecentActivity(notifications);
 
       console.log('✅ Dashboard data loaded:', dashboardStats);
+      console.log('💰 AVAX Price used for conversion:', currentAvaxPrice, 'USD');
 
     } catch (error) {
       console.error('❌ Failed to load dashboard data:', error);
@@ -126,8 +165,25 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
     }
   };
 
+  const handleViewServiceDetails = (token: TimeToken) => {
+    setSelectedToken(token);
+    setShowTokenModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowTokenModal(false);
+    setSelectedToken(null);
+  };
+
   const formatPrice = (priceWei: bigint) => {
     return parseFloat(formatEther(priceWei)).toFixed(2);
+  };
+
+  // New function to format price in USD
+  const formatPriceUSD = (priceWei: bigint) => {
+    const avaxAmount = parseFloat(formatEther(priceWei));
+    const usdAmount = avaxAmount * avaxPriceUSD;
+    return usdAmount.toFixed(2);
   };
 
   const formatValidUntil = (timestamp: bigint) => {
@@ -151,7 +207,7 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
     const diff = now - timestamp;
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
+
     if (hours < 1) return 'Just now';
     if (hours < 24) return `${hours}h ago`;
     if (days < 7) return `${days}d ago`;
@@ -218,6 +274,11 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
             <p className="text-white/80 text-xl">
               Manage your time tokens and track your earnings
             </p>
+            {avaxPriceUSD > 0 && (
+              <p className="text-white/60 text-sm mt-1">
+                💰 AVAX Price: ${avaxPriceUSD.toFixed(2)} USD
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <NotificationCenter />
@@ -241,11 +302,11 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
           </div>
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-4 text-center">
             <div className="text-2xl font-bold text-yellow-400">${stats.totalEarnings.toFixed(2)}</div>
-            <div className="text-white/70 text-sm">Earnings</div>
+            <div className="text-white/70 text-sm">Earnings (USD)</div>
           </div>
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-4 text-center">
             <div className="text-2xl font-bold text-red-400">${stats.totalSpent.toFixed(2)}</div>
-            <div className="text-white/70 text-sm">Spent</div>
+            <div className="text-white/70 text-sm">Spent (USD)</div>
           </div>
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-4 text-center">
             <div className="text-2xl font-bold text-orange-400">{stats.completedServices}</div>
@@ -281,11 +342,10 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`px-4 py-2 rounded-xl font-medium transition-all ${
-                    activeTab === tab.id
-                      ? 'bg-white text-purple-600'
-                      : 'text-white hover:bg-white/10'
-                  }`}
+                  className={`px-4 py-2 rounded-xl font-medium transition-all ${activeTab === tab.id
+                    ? 'bg-white text-purple-600'
+                    : 'text-white hover:bg-white/10'
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -334,9 +394,9 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
                     <div key={activity.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
                       <div className="text-lg">
                         {activity.type === 'token_created' ? '🎉' :
-                         activity.type === 'token_purchased' ? '💰' :
-                         activity.type === 'service_completed' ? '✅' :
-                         activity.type === 'payment_received' ? '💳' : '📬'}
+                          activity.type === 'token_purchased' ? '💰' :
+                            activity.type === 'service_completed' ? '✅' :
+                              activity.type === 'payment_received' ? '💳' : '📬'}
                       </div>
                       <div className="flex-1">
                         <div className="text-white text-sm font-medium">{activity.title}</div>
@@ -425,7 +485,7 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
                             <span>{completionRate.toFixed(1)}%</span>
                           </div>
                           <div className="w-full bg-white/20 rounded-full h-2">
-                            <div 
+                            <div
                               className="bg-gradient-to-r from-green-400 to-blue-500 h-2 rounded-full transition-all"
                               style={{ width: `${completionRate}%` }}
                             />
@@ -441,7 +501,10 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
                               Deactivate
                             </button>
                           )}
-                          <button className="flex-1 bg-white/20 hover:bg-white/30 text-white py-2 px-4 rounded-xl text-sm font-medium transition-all">
+                          <button 
+                            onClick={() => handleViewServiceDetails(token)}
+                            className="flex-1 bg-white/20 hover:bg-white/30 text-white py-2 px-4 rounded-xl text-sm font-medium transition-all"
+                          >
                             View Details
                           </button>
                         </div>
@@ -497,9 +560,8 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
                             by {token.creator.slice(0, 6)}...{token.creator.slice(-4)}
                           </p>
                         </div>
-                        <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          isExpired(token.validUntil) ? 'text-red-400 bg-red-500/20' : 'text-green-400 bg-green-500/20'
-                        }`}>
+                        <div className={`px-3 py-1 rounded-full text-xs font-medium ${isExpired(token.validUntil) ? 'text-red-400 bg-red-500/20' : 'text-green-400 bg-green-500/20'
+                          }`}>
                           {isExpired(token.validUntil) ? 'Expired' : 'Active'}
                         </div>
                       </div>
@@ -510,12 +572,27 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
                           <div className="text-white font-bold">${formatPrice(token.pricePerHour)}</div>
                         </div>
                         <div>
+                          <div className="text-white/60 text-xs">Hours Purchased</div>
+                          <div className="text-green-400 font-bold">
+                            {token.purchasedHours ? token.purchasedHours.toString() + 'h' : '0h'}
+                          </div>
+                        </div>
+                        <div>
                           <div className="text-white/60 text-xs">Valid Until</div>
                           <div className="text-white font-bold">{formatValidUntil(token.validUntil)}</div>
                         </div>
+                        <div>
+                          <div className="text-white/60 text-xs">Purchase Date</div>
+                          <div className="text-white font-bold">
+                            {token.purchaseTimestamp ? new Date(token.purchaseTimestamp).toLocaleDateString() : 'N/A'}
+                          </div>
+                        </div>
                       </div>
 
-                      <button className="w-full bg-white/20 hover:bg-white/30 text-white py-3 px-4 rounded-xl font-medium transition-all">
+                      <button 
+                        onClick={() => handleViewServiceDetails(token)}
+                        className="w-full bg-white/20 hover:bg-white/30 text-white py-3 px-4 rounded-xl font-medium transition-all"
+                      >
                         View Service Details
                       </button>
                     </motion.div>
@@ -528,14 +605,14 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
           {activeTab === 'earnings' && (
             <div className="space-y-8">
               <h2 className="text-3xl font-bold text-white text-center">💰 Earnings Overview</h2>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-gradient-to-br from-green-500/20 to-green-700/20 backdrop-blur-lg rounded-3xl p-8 border border-green-500/30">
                   <h3 className="text-green-400 font-bold text-2xl mb-4">Total Earnings</h3>
                   <p className="text-white text-4xl font-bold mb-2">${stats.totalEarnings.toFixed(2)}</p>
                   <p className="text-green-300">From {stats.completedServices} hours completed</p>
                 </div>
-                
+
                 <div className="bg-gradient-to-br from-blue-500/20 to-blue-700/20 backdrop-blur-lg rounded-3xl p-8 border border-blue-500/30">
                   <h3 className="text-blue-400 font-bold text-2xl mb-4">Average Rate</h3>
                   <p className="text-white text-4xl font-bold mb-2">
@@ -543,14 +620,14 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
                   </p>
                   <p className="text-blue-300">Per hour completed</p>
                 </div>
-                
+
                 <div className="bg-gradient-to-br from-purple-500/20 to-purple-700/20 backdrop-blur-lg rounded-3xl p-8 border border-purple-500/30">
                   <h3 className="text-purple-400 font-bold text-2xl mb-4">Active Revenue</h3>
                   <p className="text-white text-4xl font-bold mb-2">{stats.activeTokens}</p>
                   <p className="text-purple-300">Revenue streams</p>
                 </div>
               </div>
-              
+
               <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20">
                 <h3 className="text-2xl font-bold text-white mb-6">💡 Earnings Optimization</h3>
                 <div className="space-y-4">
@@ -583,7 +660,7 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
           {activeTab === 'activity' && (
             <div className="space-y-6">
               <h2 className="text-2xl font-bold text-white">📈 Activity Feed</h2>
-              
+
               {recentActivity.length === 0 ? (
                 <div className="text-center py-16">
                   <div className="text-6xl mb-4">📈</div>
@@ -603,11 +680,11 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
                       <div className="flex items-start gap-4">
                         <div className="text-3xl">
                           {activity.type === 'token_created' ? '🎉' :
-                           activity.type === 'token_purchased' ? '💰' :
-                           activity.type === 'service_completed' ? '✅' :
-                           activity.type === 'payment_received' ? '💳' :
-                           activity.type === 'token_expired' ? '⏰' :
-                           activity.type === 'market_update' ? '📊' : '📬'}
+                            activity.type === 'token_purchased' ? '💰' :
+                              activity.type === 'service_completed' ? '✅' :
+                                activity.type === 'payment_received' ? '💳' :
+                                  activity.type === 'token_expired' ? '⏰' :
+                                    activity.type === 'market_update' ? '📊' : '📬'}
                         </div>
                         <div className="flex-1">
                           <div className="flex justify-between items-start mb-2">
@@ -616,12 +693,11 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
                           </div>
                           <p className="text-white/80 mb-3">{activity.message}</p>
                           <div className="flex justify-between items-center">
-                            <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              activity.priority === 'urgent' ? 'text-red-400 bg-red-500/20' :
+                            <div className={`px-3 py-1 rounded-full text-xs font-medium ${activity.priority === 'urgent' ? 'text-red-400 bg-red-500/20' :
                               activity.priority === 'high' ? 'text-orange-400 bg-orange-500/20' :
-                              activity.priority === 'medium' ? 'text-yellow-400 bg-yellow-500/20' :
-                              'text-green-400 bg-green-500/20'
-                            }`}>
+                                activity.priority === 'medium' ? 'text-yellow-400 bg-yellow-500/20' :
+                                  'text-green-400 bg-green-500/20'
+                              }`}>
                               {activity.priority} priority
                             </div>
                             {activity.actionLabel && activity.actionUrl && (
@@ -640,6 +716,241 @@ export default function Dashboard({ onCreateToken, onViewMarketplace }: Dashboar
           )}
         </motion.div>
       </div>
+
+      {/* Service Details Modal */}
+      <AnimatePresence>
+        {showTokenModal && selectedToken && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            onClick={handleCloseModal}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-gradient-to-br from-purple-500/20 to-blue-600/20 backdrop-blur-lg rounded-3xl p-8 border border-white/20 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-2">{selectedToken.serviceName}</h2>
+                  <p className="text-white/60">Token #{selectedToken.tokenId}</p>
+                </div>
+                <button
+                  onClick={handleCloseModal}
+                  className="text-white/60 hover:text-white text-2xl"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Service Provider Info */}
+              <div className="bg-white/10 rounded-2xl p-6 mb-6">
+                <h3 className="text-white font-bold text-lg mb-4">🔹 Service Provider</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Creator Address:</span>
+                    <span className="text-white font-mono text-sm">
+                      {selectedToken.creator.slice(0, 6)}...{selectedToken.creator.slice(-4)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Token Status:</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      !selectedToken.isActive ? 'text-gray-400 bg-gray-500/20' :
+                      isExpired(selectedToken.validUntil) ? 'text-red-400 bg-red-500/20' :
+                      Number(selectedToken.availableHours) === 0 ? 'text-yellow-400 bg-yellow-500/20' :
+                      'text-green-400 bg-green-500/20'
+                    }`}>
+                      {!selectedToken.isActive ? 'Deactivated' :
+                       isExpired(selectedToken.validUntil) ? 'Expired' :
+                       Number(selectedToken.availableHours) === 0 ? 'Sold Out' : 'Active'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Purchase Details or Performance Details */}
+              {selectedToken.purchasedHours !== undefined ? (
+                // Show purchase details for purchased tokens
+                <div className="bg-white/10 rounded-2xl p-6 mb-6">
+                  <h3 className="text-white font-bold text-lg mb-4">🛒 Your Purchase Details</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-white/60 text-sm">Hours Purchased</div>
+                      <div className="text-green-400 font-bold text-xl">
+                        {selectedToken.purchasedHours ? selectedToken.purchasedHours.toString() + 'h' : '0h'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-white/60 text-sm">Total Cost</div>
+                      <div className="text-white font-bold text-xl">
+                        ${selectedToken.purchasedHours ? 
+                          (Number(selectedToken.purchasedHours) * parseFloat(formatPrice(selectedToken.pricePerHour))).toFixed(2) : 
+                          '0.00'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-white/60 text-sm">Purchase Date</div>
+                      <div className="text-white font-bold">
+                        {selectedToken.purchaseTimestamp ? 
+                          new Date(selectedToken.purchaseTimestamp).toLocaleDateString() : 
+                          'N/A'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-white/60 text-sm">Valid Until</div>
+                      <div className="text-white font-bold">
+                        {formatValidUntil(selectedToken.validUntil)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Show performance details for created tokens
+                <div className="bg-white/10 rounded-2xl p-6 mb-6">
+                  <h3 className="text-white font-bold text-lg mb-4">📊 Token Performance</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-white/60 text-sm">Hours Sold</div>
+                      <div className="text-green-400 font-bold text-xl">
+                        {(Number(selectedToken.totalHours) - Number(selectedToken.availableHours))}h
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-white/60 text-sm">Total Earnings</div>
+                      <div className="text-white font-bold text-xl">
+                        ${((Number(selectedToken.totalHours) - Number(selectedToken.availableHours)) * parseFloat(formatPrice(selectedToken.pricePerHour))).toFixed(2)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-white/60 text-sm">Creation Date</div>
+                      <div className="text-white font-bold">
+                        {new Date().toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-white/60 text-sm">Completion Rate</div>
+                      <div className="text-white font-bold">
+                        {((Number(selectedToken.totalHours) - Number(selectedToken.availableHours)) / Number(selectedToken.totalHours) * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Service Details */}
+              <div className="bg-white/10 rounded-2xl p-6 mb-6">
+                <h3 className="text-white font-bold text-lg mb-4">📋 Service Details</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-white/60 text-sm">Price per Hour</div>
+                    <div className="text-white font-bold">${formatPrice(selectedToken.pricePerHour)}</div>
+                  </div>
+                  <div>
+                    <div className="text-white/60 text-sm">Total Hours Available</div>
+                    <div className="text-white font-bold">{selectedToken.totalHours.toString()}h</div>
+                  </div>
+                  <div>
+                    <div className="text-white/60 text-sm">Hours Remaining</div>
+                    <div className="text-white font-bold">{selectedToken.availableHours.toString()}h</div>
+                  </div>
+                  <div>
+                    <div className="text-white/60 text-sm">Hours Sold</div>
+                    <div className="text-green-400 font-bold">
+                      {(Number(selectedToken.totalHours) - Number(selectedToken.availableHours))}h
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Next Steps */}
+              <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-2xl p-6 border border-blue-500/30">
+                <h3 className="text-white font-bold text-lg mb-4">📞 Next Steps</h3>
+                <div className="space-y-3">
+                  {selectedToken.purchasedHours !== undefined ? (
+                    // Steps for purchased tokens
+                    <>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">💬</span>
+                        <div>
+                          <div className="text-white font-medium">Contact Service Provider</div>
+                          <div className="text-white/70 text-sm">
+                            Reach out to coordinate your {selectedToken.purchasedHours?.toString() || '0'} hours of service
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">📅</span>
+                        <div>
+                          <div className="text-white font-medium">Schedule Your Sessions</div>
+                          <div className="text-white/70 text-sm">
+                            Plan how to use your purchased time before {formatValidUntil(selectedToken.validUntil)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">✅</span>
+                        <div>
+                          <div className="text-white font-medium">Service Completion</div>
+                          <div className="text-white/70 text-sm">
+                            Provider will mark hours as completed when service is delivered
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    // Steps for created tokens
+                    <>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">📢</span>
+                        <div>
+                          <div className="text-white font-medium">Promote Your Service</div>
+                          <div className="text-white/70 text-sm">
+                            Share your token in the marketplace to attract buyers
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">💼</span>
+                        <div>
+                          <div className="text-white font-medium">Deliver Quality Service</div>
+                          <div className="text-white/70 text-sm">
+                            Maintain high standards to build reputation and repeat business
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">📊</span>
+                        <div>
+                          <div className="text-white font-medium">Track Performance</div>
+                          <div className="text-white/70 text-sm">
+                            Monitor sales and adjust pricing or duration as needed
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <div className="flex justify-center mt-6">
+                <button
+                  onClick={handleCloseModal}
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white px-8 py-3 rounded-xl font-medium transition-all"
+                >
+                  Close Details
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

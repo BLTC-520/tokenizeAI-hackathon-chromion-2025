@@ -5,21 +5,136 @@ import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
 import ChainSwitcher from './ChainSwitcher';
+import Prism from 'prismjs';
+import 'prismjs/themes/prism-tomorrow.css';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/components/prism-typescript';
 
 interface ScrollableLandingProps {
   onGetStarted?: () => void;
 }
 
-const CodeBlock = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-black/90 rounded-lg p-6 border border-green-500/30 font-mono text-green-400 text-sm overflow-x-auto ${className}`}>
-    <pre className="whitespace-pre-wrap">{children}</pre>
-  </div>
-);
+const CodeBlock = ({ children, className = "", language = "javascript", animate = true }: {
+  children: string;
+  className?: string;
+  language?: string;
+  animate?: boolean;
+}) => {
+  const codeRef = useRef<HTMLElement>(null);
+  const [displayedCode, setDisplayedCode] = useState('');
+  const [isAnimating, setIsAnimating] = useState(animate);
 
-const TechFeature = ({ icon, title, description, code }: { 
-  icon: string; 
-  title: string; 
-  description: string; 
+  // Glitch characters for the animation
+  const glitchChars = '!@#$%^&*()_+-=[]{}|;:,.<>?~`0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+  useEffect(() => {
+    if (!animate) {
+      setDisplayedCode(children);
+      return;
+    }
+
+    setIsAnimating(true);
+    const targetCode = children;
+    const animationDuration = 2000; // 2 seconds
+    const updateInterval = 50; // Update every 50ms
+    const totalSteps = animationDuration / updateInterval;
+    let currentStep = 0;
+
+    const animationInterval = setInterval(() => {
+      currentStep++;
+      const progress = currentStep / totalSteps;
+
+      // Calculate how many characters should be "resolved" at this point
+      const resolvedLength = Math.floor(targetCode.length * progress);
+
+      let newCode = '';
+
+      for (let i = 0; i < targetCode.length; i++) {
+        if (i < resolvedLength) {
+          // Character is resolved - show the actual character
+          newCode += targetCode[i];
+        } else if (targetCode[i] === ' ' || targetCode[i] === '\n' || targetCode[i] === '\t') {
+          // Preserve whitespace and newlines
+          newCode += targetCode[i];
+        } else {
+          // Character is still glitching - show random character
+          newCode += glitchChars[Math.floor(Math.random() * glitchChars.length)];
+        }
+      }
+
+      setDisplayedCode(newCode);
+
+      if (currentStep >= totalSteps) {
+        clearInterval(animationInterval);
+        setDisplayedCode(targetCode);
+        setIsAnimating(false);
+      }
+    }, updateInterval);
+
+    return () => clearInterval(animationInterval);
+  }, [children, animate]);
+
+  useEffect(() => {
+    if (codeRef.current && !isAnimating) {
+      Prism.highlightElement(codeRef.current);
+    }
+  }, [displayedCode, language, isAnimating]);
+
+  useEffect(() => {
+    // Override Prism CSS for pure black background
+    const style = document.createElement('style');
+    style.textContent = `
+      .language-javascript,
+      .language-typescript,
+      pre[class*="language-"],
+      code[class*="language-"] {
+        background: transparent !important;
+      }
+      pre[class*="language-"]::-moz-selection,
+      pre[class*="language-"] ::-moz-selection,
+      code[class*="language-"]::-moz-selection,
+      code[class*="language-"] ::-moz-selection {
+        background: rgba(255, 255, 255, 0.2) !important;
+      }
+      pre[class*="language-"]::selection,
+      pre[class*="language-"] ::selection,
+      code[class*="language-"]::selection,
+      code[class*="language-"] ::selection {
+        background: rgba(255, 255, 255, 0.2) !important;
+      }
+      .glitch-animation {
+        color: #00ff00;
+        text-shadow: 0 0 5px #00ff00;
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      if (document.head.contains(style)) {
+        document.head.removeChild(style);
+      }
+    };
+  }, []);
+
+  return (
+    <div className={`bg-black/90 rounded-lg p-6 border border-green-500/30 font-mono text-sm overflow-x-auto ${className}`}>
+      <pre style={{ background: 'transparent', margin: 0, padding: 0 }}>
+        <code
+          ref={codeRef}
+          className={`language-${language} ${isAnimating ? 'glitch-animation' : ''}`}
+          style={{ background: 'transparent' }}
+        >
+          {displayedCode}
+        </code>
+      </pre>
+    </div>
+  );
+};
+
+const TechFeature = ({ icon, title, description, code }: {
+  icon: string;
+  title: string;
+  description: string;
   code: string;
 }) => {
   const ref = useRef(null);
@@ -36,7 +151,53 @@ const TechFeature = ({ icon, title, description, code }: {
       <div className="text-4xl mb-4">{icon}</div>
       <h3 className="text-2xl font-bold text-white mb-3">{title}</h3>
       <p className="text-white/70 mb-6 leading-relaxed">{description}</p>
-      <CodeBlock>{code}</CodeBlock>
+      <CodeBlock language="javascript" animate={isInView}>{code}</CodeBlock>
+    </motion.div>
+  );
+};
+
+const CallToActionCode = () => {
+  const codeRef = useRef(null);
+  const codeInView = useInView(codeRef, { once: true, margin: "-100px" });
+
+  return (
+    <div ref={codeRef}>
+      <CodeBlock className="mb-12" language="javascript" animate={codeInView}>
+        {`// Your journey starts here
+const future = await tokenizeTime({
+  you: "skilled_professional",
+  blockchain: "avalanche",
+  ai: "gemini_pro",
+  result: "financial_freedom"
+});
+
+console.log("Welcome to the future of work! 🚀");`}
+      </CodeBlock>
+    </div>
+  );
+};
+
+const WorkflowStep = ({ item, index }: { item: any; index: number }) => {
+  const stepRef = useRef(null);
+  const stepInView = useInView(stepRef, { once: true, margin: "-100px" });
+
+  return (
+    <motion.div
+      ref={stepRef}
+      initial={{ opacity: 0, y: 50 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, delay: index * 0.2 }}
+      viewport={{ once: true }}
+      className="text-center"
+    >
+      <div className="bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6 border border-white/20">
+        <span className="text-2xl font-bold text-white font-mono">{item.step}</span>
+      </div>
+      <h3 className="text-2xl font-bold text-white mb-4">{item.title}</h3>
+      <p className="text-white/70 mb-6">{item.description}</p>
+      <CodeBlock className="text-xs" language="javascript" animate={stepInView}>
+        {`// Step ${item.step}\n${item.code}`}
+      </CodeBlock>
     </motion.div>
   );
 };
@@ -45,18 +206,40 @@ export default function ScrollableLanding({ onGetStarted }: ScrollableLandingPro
   const { isConnected, address } = useAccount();
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: containerRef });
-  
+
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  
+
   // Parallax transforms
   const heroY = useTransform(scrollYProgress, [0, 1], [0, -300]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.3], [1, 0]);
-  
+
+  // Pre-define workflow steps to avoid recreation
+  const workflowSteps = [
+    {
+      step: "01",
+      title: "Profile Creation",
+      description: "AI analyzes your skills and creates a personalized profile",
+      code: "await createProfile(skills)"
+    },
+    {
+      step: "02",
+      title: "Token Generation",
+      description: "Smart contracts deploy your time tokens to the blockchain",
+      code: "const token = mint(profile)"
+    },
+    {
+      step: "03",
+      title: "Marketplace",
+      description: "Start earning as clients purchase your tokenized time",
+      code: "earnings += token.sales()"
+    }
+  ];
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({ x: e.clientX, y: e.clientY });
     };
-    
+
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
@@ -67,14 +250,14 @@ export default function ScrollableLanding({ onGetStarted }: ScrollableLandingPro
       <div className="fixed inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
         <div className="absolute inset-0">
           {/* Grid Pattern */}
-          <div 
+          <div
             className="absolute inset-0 opacity-10"
             style={{
               backgroundImage: `radial-gradient(circle at ${mousePosition.x / 10}px ${mousePosition.y / 10}px, rgba(255,255,255,0.1) 1px, transparent 1px)`,
               backgroundSize: '50px 50px',
             }}
           />
-          
+
           {/* Floating Orbs */}
           <motion.div
             className="absolute top-1/4 left-1/4 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl"
@@ -105,7 +288,7 @@ export default function ScrollableLanding({ onGetStarted }: ScrollableLandingPro
 
       <div className="relative z-10">
         {/* Hero Section */}
-        <motion.section 
+        <motion.section
           className="min-h-screen flex items-center justify-center px-8"
           style={{ y: heroY, opacity: heroOpacity }}
         >
@@ -124,7 +307,7 @@ export default function ScrollableLanding({ onGetStarted }: ScrollableLandingPro
                 <span className="text-white">Your token</span>
               </h1>
             </motion.div>
-            
+
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -132,12 +315,12 @@ export default function ScrollableLanding({ onGetStarted }: ScrollableLandingPro
               className="mb-12"
             >
               <p className="text-xl md:text-2xl text-white/80 mb-8 leading-relaxed max-w-3xl mx-auto">
-                Transform your expertise into tradeable time tokens. Built on blockchain, 
+                Transform your expertise into tradeable time tokens. Built on blockchain,
                 powered by AI, designed for the future of work.
               </p>
-              
-              <CodeBlock className="max-w-2xl mx-auto text-left">
-{`// Initialize your time tokenization
+
+              <CodeBlock className="max-w-2xl mx-auto text-left" language="javascript" animate={true}>
+                {`// Initialize your time tokenization
 const timeToken = await createToken({
   service: "AI Development",
   hourlyRate: 100,
@@ -146,7 +329,7 @@ const timeToken = await createToken({
   expires: "30 days"
 });
 
-console.log(\`Token created: $\{timeToken.id}\`);
+console.log(\`Token created: \${timeToken.id}\`);
 // → Token created: TT-2024-0001`}
               </CodeBlock>
             </motion.div>
@@ -176,7 +359,7 @@ console.log(\`Token created: $\{timeToken.id}\`);
                     onClick={onGetStarted}
                     className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300"
                   >
-                    Continue to App 
+                    Continue to App
                   </button>
                 </div>
               )}
@@ -297,44 +480,8 @@ contract TimeToken is ERC1155 {
             </motion.div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {[
-                {
-                  step: "01",
-                  title: "Profile Creation",
-                  description: "AI analyzes your skills and creates a personalized profile",
-                  code: "await createProfile(skills)"
-                },
-                {
-                  step: "02", 
-                  title: "Token Generation",
-                  description: "Smart contracts deploy your time tokens to the blockchain",
-                  code: "const token = mint(profile)"
-                },
-                {
-                  step: "03",
-                  title: "Marketplace",
-                  description: "Start earning as clients purchase your tokenized time",
-                  code: "earnings += token.sales()"
-                }
-              ].map((item, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 50 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.2 }}
-                  viewport={{ once: true }}
-                  className="text-center"
-                >
-                  <div className="bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6 border border-white/20">
-                    <span className="text-2xl font-bold text-white font-mono">{item.step}</span>
-                  </div>
-                  <h3 className="text-2xl font-bold text-white mb-4">{item.title}</h3>
-                  <p className="text-white/70 mb-6">{item.description}</p>
-                  <CodeBlock className="text-xs">
-                    <span className="text-gray-400">// Step {item.step}</span><br />
-                    {item.code}
-                  </CodeBlock>
-                </motion.div>
+              {workflowSteps.map((item, index) => (
+                <WorkflowStep key={`workflow-step-${index}`} item={item} index={index} />
               ))}
             </div>
           </div>
@@ -356,17 +503,7 @@ contract TimeToken is ERC1155 {
                 Join the future of work. Start tokenizing your time today.
               </p>
 
-              <CodeBlock className="mb-12">
-{`// Your journey starts here
-const future = await tokenizeTime({
-  you: "skilled_professional",
-  blockchain: "avalanche",
-  ai: "gemini_pro",
-  result: "financial_freedom"
-});
-
-console.log("Welcome to the future of work! 🚀");`}
-              </CodeBlock>
+              <CallToActionCode />
 
               {!isConnected ? (
                 <ConnectButton.Custom>

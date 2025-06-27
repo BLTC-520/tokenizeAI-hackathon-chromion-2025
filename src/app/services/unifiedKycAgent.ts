@@ -40,6 +40,13 @@ export interface KYCEventCallbacks {
     onKYCError?: (error: string) => void;
     onNFTMinted?: (tokenId: number, contractAddress: string, transactionHash?: string) => void;
     onAccessGranted?: () => void;
+    // Add this new callback:
+    onStepUpdate?: (
+        stepId: string,
+        status: 'pending' | 'processing' | 'completed' | 'error',
+        description?: string,
+        details?: string
+    ) => void;
 }
 
 export class UnifiedKYCAgent {

@@ -334,7 +334,7 @@ Provide detailed, market-aware insights based on 2024 freelance market condition
       return [
         {
           name: "DeFi Yield Farming Platform",
-          description: "Build next-generation decentralized finance applications with advanced yield optimization",
+          description: "Build next-generation decentralized finance applications with advanced yield optimization and smart contract security",
           match: 96,
           estimatedBudget: "$25,000-40,000",
           duration: "8-12 weeks",
@@ -342,7 +342,7 @@ Provide detailed, market-aware insights based on 2024 freelance market condition
         },
         {
           name: "NFT Marketplace with AI Integration",
-          description: "Create intelligent NFT platform with recommendation engine and social features",
+          description: "Create intelligent NFT platform with recommendation engine, social features, and dynamic pricing algorithms",
           match: 92,
           estimatedBudget: "$30,000-50,000", 
           duration: "10-14 weeks",
@@ -350,18 +350,42 @@ Provide detailed, market-aware insights based on 2024 freelance market condition
         },
         {
           name: "Cross-Chain Bridge Protocol",
-          description: "Develop secure cross-chain asset transfer protocol with user-friendly interface",
+          description: "Develop secure cross-chain asset transfer protocol with user-friendly interface and real-time liquidity optimization",
           match: 88,
           estimatedBudget: "$35,000-60,000",
           duration: "12-16 weeks",
           requiredSkills: userAnswers.skills.slice(0, 3)
+        },
+        {
+          name: "Decentralized Social Media DApp",
+          description: "Build a Web3 social platform with token incentives, decentralized storage, and community governance features",
+          match: 93,
+          estimatedBudget: "$22,000-38,000",
+          duration: "9-13 weeks",
+          requiredSkills: [...userAnswers.skills.slice(0, 2), "React", "IPFS"]
+        },
+        {
+          name: "GameFi P2E Trading Platform",
+          description: "Create play-to-earn gaming ecosystem with NFT assets, token economics, and tournament management system",
+          match: 87,
+          estimatedBudget: "$28,000-45,000",
+          duration: "11-15 weeks",
+          requiredSkills: [...userAnswers.skills.slice(0, 3), "Gaming APIs"]
+        },
+        {
+          name: "DAO Governance & Treasury Management",
+          description: "Develop comprehensive DAO platform with proposal voting, treasury tracking, and member analytics dashboard",
+          match: 91,
+          estimatedBudget: "$20,000-32,000",
+          duration: "7-10 weeks",
+          requiredSkills: userAnswers.skills.slice(0, 4)
         }
       ];
     } else {
       return [
         {
           name: "Enterprise SaaS Dashboard",
-          description: "Build comprehensive analytics platform for enterprise clients",
+          description: "Build comprehensive analytics platform for enterprise clients with real-time data visualization and advanced reporting",
           match: 94,
           estimatedBudget: "$15,000-25,000",
           duration: "6-8 weeks",
@@ -369,11 +393,43 @@ Provide detailed, market-aware insights based on 2024 freelance market condition
         },
         {
           name: "AI-Powered E-commerce Platform",
-          description: "Create intelligent e-commerce solution with personalization engine",
+          description: "Create intelligent e-commerce solution with personalization engine, inventory optimization, and predictive analytics",
           match: 89,
           estimatedBudget: "$20,000-35,000", 
           duration: "8-12 weeks",
           requiredSkills: userAnswers.skills.slice(0, 4)
+        },
+        {
+          name: "Healthcare Management System",
+          description: "Develop HIPAA-compliant patient management platform with telemedicine features and appointment scheduling",
+          match: 86,
+          estimatedBudget: "$18,000-28,000",
+          duration: "7-10 weeks",
+          requiredSkills: [...userAnswers.skills.slice(0, 2), "Security", "Compliance"]
+        },
+        {
+          name: "FinTech Mobile Banking App",
+          description: "Build secure mobile banking solution with biometric authentication, expense tracking, and investment portfolio management",
+          match: 92,
+          estimatedBudget: "$25,000-40,000",
+          duration: "10-14 weeks",
+          requiredSkills: [...userAnswers.skills.slice(0, 3), "Mobile Security"]
+        },
+        {
+          name: "IoT Fleet Management Platform",
+          description: "Create comprehensive IoT dashboard for vehicle tracking, maintenance scheduling, and driver performance analytics",
+          match: 88,
+          estimatedBudget: "$22,000-35,000",
+          duration: "9-12 weeks",
+          requiredSkills: [...userAnswers.skills.slice(0, 2), "IoT", "Data Analytics"]
+        },
+        {
+          name: "EdTech Learning Management System",
+          description: "Develop interactive online learning platform with video streaming, progress tracking, and AI-powered personalized learning paths",
+          match: 85,
+          estimatedBudget: "$16,000-26,000",
+          duration: "8-11 weeks",
+          requiredSkills: [...userAnswers.skills.slice(0, 3), "Video APIs"]
         }
       ];
     }

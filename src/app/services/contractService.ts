@@ -20,6 +20,8 @@ export interface TimeToken {
   availableHours: bigint;
   validUntil: bigint;
   isActive: boolean;
+  purchasedHours?: bigint; // For purchased tokens, track how many hours the user bought
+  purchaseTimestamp?: number; // Track when the user purchased this token
 }
 
 export interface TokenCreationParams {
@@ -525,6 +527,39 @@ export class ContractService {
 
     } catch (error) {
       console.error('❌ Failed to get buyer tokens:', error);
+      return [];
+    }
+  }
+
+  // Get user's purchased tokens with balance information
+  async getBuyerTokensWithBalances(buyer: string): Promise<TimeToken[]> {
+    try {
+      console.log('📊 Getting buyer tokens with balances for:', buyer);
+      
+      const tokenIds = await this.getBuyerTokens(buyer);
+      const tokensWithBalances: TimeToken[] = [];
+
+      for (const tokenId of tokenIds) {
+        // Get token details
+        const token = await this.getTimeToken(tokenId.toString());
+        if (token) {
+          // Get user's balance (purchased hours) for this token
+          const purchasedHours = await this.getTokenBalance(buyer, tokenId.toString());
+          
+          // Add purchased hours information
+          token.purchasedHours = purchasedHours;
+          // Note: purchaseTimestamp would need to be tracked from events in production
+          token.purchaseTimestamp = Date.now(); // Placeholder - would come from transaction logs
+          
+          tokensWithBalances.push(token);
+        }
+      }
+
+      console.log('✅ Loaded buyer tokens with balances:', tokensWithBalances.length);
+      return tokensWithBalances;
+
+    } catch (error) {
+      console.error('❌ Failed to get buyer tokens with balances:', error);
       return [];
     }
   }

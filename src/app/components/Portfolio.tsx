@@ -1,10 +1,12 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useState } from 'react';
-import { PortfolioData } from '../services/elizaAgent';
+import { useState, useEffect } from 'react';
+import { PortfolioData, elizaPortfolioAgent } from '../services/geminiPortfolioAgent';
 import { marketAnalyzeAgent, MarketAnalysisResult } from '../services/marketAnalyzeAgent';
 import { GETSKILLPRICE_CONTRACT_ADDRESS } from '../shared/constants';
+import { getPriceService, PriceData } from '../services/priceService';
+import { useChainId } from 'wagmi';
 
 interface UserAnswers {
   name: string;
@@ -42,6 +44,11 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
   const [activeTab, setActiveTab] = useState('overview');
   const [marketAnalysis, setMarketAnalysis] = useState<MarketAnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [priceData, setPriceData] = useState<PriceData | null>(null);
+  const [aiPortfolioData, setAiPortfolioData] = useState<PortfolioData | null>(null);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const chainId = useChainId();
+  const priceService = getPriceService();
 
   const calculateWeeklyEarnings = () => {
     const timeMap: { [key: string]: number } = {
@@ -96,37 +103,70 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
 
     const projects = [
       { 
-        name: 'SaaS Sales Consultant for AI-powered CRM', 
-        match: 95, 
-        estimatedBudget: '$85,000-120,000', 
-        duration: '8-12 weeks',
-        description: 'Lead sales strategy and client acquisition for cutting-edge AI customer relationship management platform.',
-        fitReason: `Perfect match for your ${skillSet} expertise. Your ${experienceLevel} level experience in sales and AI technology makes you ideal for this high-growth SaaS role.`,
-        requiredSkills: ['Sales Strategy', 'CRM Systems', 'AI Technology', 'Client Relations'],
-        keyResponsibilities: ['Develop go-to-market strategies', 'Manage enterprise client relationships', 'Drive revenue growth', 'Present AI solutions to C-level executives'],
-        whyYouFit: `Your combination of ${skillSet} skills perfectly aligns with this role's requirements. The ${timeAvailable} hours you have available weekly is ideal for managing multiple enterprise accounts.`
-      },
-      { 
-        name: 'Healthcare Sales Representative for Telemedicine Platform', 
-        match: 90, 
-        estimatedBudget: '$75,000-95,000', 
-        duration: '6-8 weeks',
-        description: 'Drive adoption of innovative telemedicine solutions across healthcare networks and medical practices.',
-        fitReason: `Your background in ${skillSet} provides strong foundation for healthcare technology sales. ${experienceLevel} experience level shows you can handle complex medical technology discussions.`,
-        requiredSkills: ['Healthcare Knowledge', 'Technology Sales', 'Relationship Building', 'Compliance Understanding'],
-        keyResponsibilities: ['Target healthcare institutions', 'Demonstrate telemedicine benefits', 'Navigate healthcare compliance', 'Build long-term partnerships'],
-        whyYouFit: `Healthcare sales requires the technical understanding you've demonstrated through ${skillSet}. Your goal of "${goals}" aligns perfectly with the growth trajectory in telehealth.`
-      },
-      { 
-        name: 'NFT Sales and Marketing Strategist', 
-        match: 85, 
-        estimatedBudget: '$65,000-85,000', 
+        name: 'Decentralized Social Media DApp Frontend', 
+        match: 92, 
+        estimatedBudget: '$1,500-3,000', 
         duration: '4-6 weeks',
-        description: 'Develop and execute sales strategies for emerging NFT marketplace targeting digital artists and collectors.',
-        fitReason: `Your ${skillSet} skills translate well to the digital asset space. ${experienceLevel} level shows you can adapt to emerging technologies and markets.`,
-        requiredSkills: ['Digital Marketing', 'Blockchain Understanding', 'Community Building', 'Creative Sales'],
-        keyResponsibilities: ['Build artist communities', 'Develop collector relationships', 'Create marketing campaigns', 'Drive platform adoption'],
-        whyYouFit: `The NFT space rewards adaptability and technical understanding - qualities evident in your ${skillSet} background. Your ${timeAvailable} availability allows for the flexible schedule this emerging market requires.`
+        description: 'Develop the frontend for a decentralized social media application using React and IPFS for decentralized storage. Requires integrating with a smart contract backend (can be provided).',
+        fitReason: `Perfect match for your ${skillSet} expertise. Your ${experienceLevel} level experience in frontend development makes you ideal for this cutting-edge Web3 project.`,
+        requiredSkills: ['Frontend Development', 'React', 'IPFS', 'Web3'],
+        keyResponsibilities: ['Build responsive UI components', 'Integrate with IPFS storage', 'Connect smart contract backend', 'Implement user authentication'],
+        whyYouFit: `Your combination of ${skillSet} skills perfectly aligns with this role's requirements. The ${timeAvailable} hours you have available weekly is ideal for this project scope.`
+      },
+      { 
+        name: 'E-commerce Website Backend with AI-powered Product Recommendations', 
+        match: 88, 
+        estimatedBudget: '$2,000-4,000', 
+        duration: '6-8 weeks',
+        description: 'Build the backend for an e-commerce website using Node.js and a database like PostgreSQL. Integrate a basic AI model for product recommendations.',
+        fitReason: `Your background in ${skillSet} provides strong foundation for full-stack development. ${experienceLevel} experience level shows you can handle complex backend architecture.`,
+        requiredSkills: ['Backend Development', 'Node.js', 'PostgreSQL', 'AI Integration'],
+        keyResponsibilities: ['Design database schema', 'Build REST APIs', 'Implement AI recommendation engine', 'Set up payment processing'],
+        whyYouFit: `Backend development requires the technical understanding you've demonstrated through ${skillSet}. Your goal of "${goals}" aligns perfectly with modern e-commerce needs.`
+      },
+      { 
+        name: 'SaaS Dashboard with User Authentication and Data Visualization', 
+        match: 90, 
+        estimatedBudget: '$1,000-2,500', 
+        duration: '4-6 weeks',
+        description: 'Create a user-friendly dashboard for a SaaS application using React and a backend of your choice. Focus on clean user interface and real-time data updates.',
+        fitReason: `Your ${skillSet} skills translate well to SaaS development. ${experienceLevel} level shows you can create professional dashboard interfaces.`,
+        requiredSkills: ['Frontend Development', 'Backend Development', 'React', 'Data Visualization'],
+        keyResponsibilities: ['Build dashboard components', 'Implement user authentication', 'Create data visualization charts', 'Set up real-time updates'],
+        whyYouFit: `SaaS development rewards clean architecture and user experience - qualities evident in your ${skillSet} background. Your ${timeAvailable} availability allows for thorough testing and refinement.`
+      },
+      { 
+        name: 'AI-Powered Chatbot for Customer Support', 
+        match: 87, 
+        estimatedBudget: '$1,800-3,500', 
+        duration: '5-7 weeks',
+        description: 'Build an intelligent chatbot system with natural language processing capabilities for automated customer support and lead generation.',
+        fitReason: `Your expertise in ${skillSet} makes you well-suited for AI integration projects. ${experienceLevel} experience level demonstrates capability for complex implementations.`,
+        requiredSkills: ['AI/ML', 'Natural Language Processing', 'Backend Development', 'API Integration'],
+        keyResponsibilities: ['Train chatbot models', 'Build conversation flows', 'Integrate with existing systems', 'Implement analytics dashboard'],
+        whyYouFit: `AI chatbot development requires both technical skills and user experience thinking, both evident in your ${skillSet} profile. Your goal of "${goals}" aligns with the growing AI automation market.`
+      },
+      { 
+        name: 'Mobile-First Progressive Web App (PWA)', 
+        match: 85, 
+        estimatedBudget: '$1,200-2,800', 
+        duration: '4-6 weeks',
+        description: 'Develop a cross-platform progressive web application with offline capabilities, push notifications, and mobile-optimized performance.',
+        fitReason: `Your ${skillSet} background provides excellent foundation for modern PWA development. ${experienceLevel} experience shows you understand mobile-first principles.`,
+        requiredSkills: ['Progressive Web Apps', 'Mobile Development', 'Service Workers', 'Performance Optimization'],
+        keyResponsibilities: ['Implement PWA features', 'Optimize for mobile performance', 'Set up offline functionality', 'Configure push notifications'],
+        whyYouFit: `PWA development combines web and mobile expertise, perfectly matching your ${skillSet} skills. Your ${timeAvailable} weekly availability ensures dedicated focus on performance optimization.`
+      },
+      { 
+        name: 'Blockchain Smart Contract Development & Integration', 
+        match: 93, 
+        estimatedBudget: '$2,500-5,000', 
+        duration: '6-10 weeks',
+        description: 'Create and deploy smart contracts for DeFi applications with comprehensive testing suite and frontend integration for seamless user experience.',
+        fitReason: `Your ${skillSet} expertise positions you perfectly for blockchain development. ${experienceLevel} level experience indicates strong problem-solving capabilities for complex smart contract logic.`,
+        requiredSkills: ['Blockchain', 'Smart Contracts', 'Solidity', 'Web3 Integration'],
+        keyResponsibilities: ['Write secure smart contracts', 'Deploy to testnet/mainnet', 'Build frontend integration', 'Conduct security audits'],
+        whyYouFit: `Blockchain development is at the cutting edge of technology, perfectly matching your ${skillSet} background. Your goal of "${goals}" aligns with the high-growth potential in Web3 space, and your ${timeAvailable} availability allows for thorough testing and security considerations.`
       }
     ];
     
@@ -154,18 +194,82 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
     return tips.slice(0, 2);
   };
 
-  // Use ElizaOS-generated data or fallback to calculated values
-  
+  // Helper function to clean and format earnings
+  const formatEarnings = (value: any): number => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      // Remove all $ signs and commas, then parse the first number
+      const cleaned = value.replace(/[$,]/g, '');
+      const match = cleaned.match(/(\d+)/);
+      return match ? parseInt(match[1]) : 0;
+    }
+    return 0;
+  };
+
+  // Load real-time price data
+  useEffect(() => {
+    const loadPriceData = async () => {
+      try {
+        const data = await priceService.getLatestPrice(chainId);
+        setPriceData(data);
+      } catch (error) {
+        console.error('Failed to load price data:', error);
+      }
+    };
+
+    loadPriceData();
+  }, [chainId]);
+
+  // Generate AI portfolio data on component mount
+  useEffect(() => {
+    const generateAIPortfolio = async () => {
+      // Only generate if we don't already have AI portfolio data from props
+      if (!portfolioData.projectRecommendations && !aiPortfolioData && !isGeneratingAI) {
+        setIsGeneratingAI(true);
+        try {
+          console.log('🤖 Generating AI portfolio with ElizaOS agent...');
+          const aiData = await elizaPortfolioAgent.generatePortfolio(userAnswers);
+          setAiPortfolioData(aiData);
+          console.log('✅ AI portfolio generation completed');
+        } catch (error) {
+          console.error('❌ Failed to generate AI portfolio:', error);
+        } finally {
+          setIsGeneratingAI(false);
+        }
+      }
+    };
+
+    generateAIPortfolio();
+  }, [userAnswers, portfolioData, aiPortfolioData, isGeneratingAI]);
+
+  // Convert USD to crypto using real Chainlink price feed
+  const usdToCrypto = (usd: number): string => {
+    if (!priceData) return '...';
+    const cryptoAmount = usd / priceData.price;
+    return cryptoAmount.toFixed(2);
+  };
+
+  // Get currency symbol for current chain
+  const getCurrencySymbol = (): string => {
+    return priceService.getCurrentCurrencyInfo(chainId).symbol;
+  };
+
+  // Use AI-generated data with priority: aiPortfolioData > portfolioData > fallback
+  const currentPortfolioData = aiPortfolioData || portfolioData;
   const insights = {
-    weeklyEarnings: portfolioData.earningsProjection?.weekly || calculateWeeklyEarnings(),
-    monthlyEarnings: portfolioData.earningsProjection?.monthly || calculateMonthlyEarnings(),
+    weeklyEarnings: formatEarnings(currentPortfolioData.earningsProjection?.weekly || calculateWeeklyEarnings()),
+    monthlyEarnings: formatEarnings(currentPortfolioData.earningsProjection?.monthly || calculateMonthlyEarnings()),
     compatibilityScore: calculateCompatibilityScore(),
-    recommendedProjects: portfolioData.projectRecommendations || generateRecommendedProjects(),
-    skillAssessment: portfolioData.skillAssessment || generateSkillAssessment(),
-    timeOptimization: portfolioData.earningsProjection?.optimizationTips || generateTimeOptimization(),
-    hasAIRecommendations: portfolioData.projectRecommendations && portfolioData.projectRecommendations.length > 0,
-    hasAISkillAssessment: portfolioData.skillAssessment && portfolioData.skillAssessment.length > 0,
-    hasAIOptimization: portfolioData.earningsProjection?.optimizationTips && portfolioData.earningsProjection.optimizationTips.length > 0,
+    recommendedProjects: currentPortfolioData.projectRecommendations || generateRecommendedProjects(),
+    skillAssessment: currentPortfolioData.skillAssessment || generateSkillAssessment(),
+    timeOptimization: currentPortfolioData.earningsProjection?.optimizationTips || generateTimeOptimization(),
+    hasAIRecommendations: (aiPortfolioData?.projectRecommendations || portfolioData.projectRecommendations) && 
+                         (aiPortfolioData?.projectRecommendations || portfolioData.projectRecommendations)!.length > 0,
+    hasAISkillAssessment: (aiPortfolioData?.skillAssessment || portfolioData.skillAssessment) && 
+                         (aiPortfolioData?.skillAssessment || portfolioData.skillAssessment)!.length > 0,
+    hasAIOptimization: (aiPortfolioData?.earningsProjection?.optimizationTips || portfolioData.earningsProjection?.optimizationTips) && 
+                      (aiPortfolioData?.earningsProjection?.optimizationTips || portfolioData.earningsProjection?.optimizationTips)!.length > 0,
+    isAIGenerated: !!aiPortfolioData,
   };
 
   // Market Analysis function
@@ -278,12 +382,12 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
                 </div>
                 <div className="mt-4">
                   <h3 className="text-white/80 font-semibold mb-2">
-                    {portfolioData.profileSummary ? 'AI-Generated Profile Summary' : 'Goals'}
+                    {currentPortfolioData.profileSummary ? 'AI-Generated Profile Summary' : 'Goals'}
                   </h3>
                   <p className="text-white">
-                    {portfolioData.profileSummary || userAnswers.goals}
+                    {currentPortfolioData.profileSummary || userAnswers.goals}
                   </p>
-                  {portfolioData.profileSummary && (
+                  {currentPortfolioData.profileSummary && (
                     <div className="mt-3 text-xs text-green-400 flex items-center">
                       🤖 Generated by ElizaOS Portfolio Maker Agent
                     </div>
@@ -296,11 +400,13 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
                 <div className="bg-gradient-to-br from-green-500/20 to-green-700/20 backdrop-blur-lg rounded-3xl p-6 border border-green-500/30">
                   <h3 className="text-green-400 font-bold text-lg mb-2">Weekly Earnings</h3>
                   <p className="text-white text-3xl font-bold">${insights.weeklyEarnings.toLocaleString()}</p>
+                  <p className="text-green-300 text-sm mt-1">≈ {usdToCrypto(insights.weeklyEarnings)} {getCurrencySymbol()}</p>
                 </div>
                 
                 <div className="bg-gradient-to-br from-blue-500/20 to-blue-700/20 backdrop-blur-lg rounded-3xl p-6 border border-blue-500/30">
                   <h3 className="text-blue-400 font-bold text-lg mb-2">Monthly Earnings</h3>
                   <p className="text-white text-3xl font-bold">${insights.monthlyEarnings.toLocaleString()}</p>
+                  <p className="text-blue-300 text-sm mt-1">≈ {usdToCrypto(insights.monthlyEarnings)} {getCurrencySymbol()}</p>
                 </div>
               </div>
             </div>
@@ -312,108 +418,101 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
                 <h2 className="text-3xl font-bold text-white mb-4">
                   🚀 Recommended Projects
                 </h2>
-                {portfolioData.projectRecommendations && (
+                {(insights.hasAIRecommendations || isGeneratingAI) && (
                   <div className="text-green-400 text-sm flex items-center justify-center">
-                    🤖 AI-curated projects based on your profile analysis
+                    {isGeneratingAI ? (
+                      <div className="flex items-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-400 mr-2"></div>
+                        🤖 ElizaOS agent generating personalized projects...
+                      </div>
+                    ) : (
+                      <>🤖 {insights.isAIGenerated ? 'AI-generated' : 'AI-curated'} projects based on your profile analysis</>
+                    )}
                   </div>
                 )}
               </div>
               
-              {insights.recommendedProjects.map((project, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.2 }}
-                  className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20 hover:border-white/40 transition-all"
-                >
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="flex-1">
-                      <h3 className="text-3xl font-bold text-white mb-3">{project.name}</h3>
-                      <p className="text-white/80 text-lg mb-4 leading-relaxed">{project.description}</p>
-                      <div className="flex items-center space-x-6 text-white/70 mb-4">
-                        <span className="flex items-center">
-                          <span className="text-2xl mr-2">💰</span>
-                          Budget: {project.estimatedBudget}
-                        </span>
-                        <span className="flex items-center">
-                          <span className="text-2xl mr-2">⏱️</span>
-                          Duration: {project.duration}
-                        </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {insights.recommendedProjects.map((project, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.2 }}
+                    className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20 hover:border-white/40 transition-all hover:scale-105 cursor-pointer"
+                  >
+                    {/* Match Badge */}
+                    <div className="flex justify-end mb-4">
+                      <div className="bg-gradient-to-r from-green-400 to-emerald-500 text-white px-4 py-2 rounded-full font-bold text-sm">
+                        {project.match}% Match
                       </div>
                     </div>
-                    <div className="bg-gradient-to-r from-green-400 to-emerald-500 text-white px-6 py-3 rounded-full font-bold text-xl ml-6">
-                      {project.match}% Match
+                    
+                    {/* Project Header */}
+                    <div className="mb-4">
+                      <h3 className="text-xl font-bold text-white mb-3 line-clamp-2">{project.name}</h3>
+                      <p className="text-white/80 text-sm mb-4 leading-relaxed line-clamp-3">{project.description}</p>
                     </div>
-                  </div>
-                  
-                  {/* Why You're Perfect Section */}
-                  <div className="bg-blue-500/10 rounded-2xl p-6 mb-6 border border-blue-400/20">
-                    <h4 className="text-blue-300 font-bold text-lg mb-3 flex items-center">
-                      <span className="text-2xl mr-2">🎯</span>
-                      Why You're Perfect for This Role
-                    </h4>
-                    <p className="text-white/90 leading-relaxed">{(project as any).whyYouFit || 'AI analysis shows strong alignment with your portfolio and experience level.'}</p>
-                  </div>
-
-                  {/* Required Skills */}
-                  <div className="mb-6">
-                    <h4 className="text-white font-bold text-lg mb-3 flex items-center">
-                      <span className="text-2xl mr-2">🔧</span>
-                      Required Skills
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {((project as any).requiredSkills || ['Sales', 'Communication', 'Technology']).map((skill: string, skillIndex: number) => (
-                        <span 
-                          key={skillIndex}
-                          className="bg-purple-500/20 text-purple-200 px-4 py-2 rounded-full text-sm font-medium border border-purple-400/30"
-                        >
-                          {skill}
-                        </span>
-                      ))}
+                    
+                    {/* Budget and Duration */}
+                    <div className="space-y-2 mb-4 text-sm">
+                      <div className="flex items-center text-white/70">
+                        <span className="text-lg mr-2">💰</span>
+                        <span>Budget: {project.estimatedBudget}</span>
+                      </div>
+                      <div className="flex items-center text-white/70">
+                        <span className="text-lg mr-2">⏱️</span>
+                        <span>Duration: {project.duration}</span>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Key Responsibilities */}
-                  <div className="mb-6">
-                    <h4 className="text-white font-bold text-lg mb-3 flex items-center">
-                      <span className="text-2xl mr-2">📋</span>
-                      Key Responsibilities
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {((project as any).keyResponsibilities || ['Drive sales growth', 'Manage client relationships', 'Present solutions', 'Meet targets']).map((responsibility: string, respIndex: number) => (
-                        <div 
-                          key={respIndex}
-                          className="flex items-center text-white/80"
-                        >
-                          <span className="text-green-400 mr-3">•</span>
-                          {responsibility}
-                        </div>
-                      ))}
+                    {/* Required Skills */}
+                    <div className="mb-4">
+                      <h4 className="text-white font-bold text-sm mb-2 flex items-center">
+                        <span className="text-lg mr-2">🔧</span>
+                        Required Skills
+                      </h4>
+                      <div className="flex flex-wrap gap-1">
+                        {((project as any).requiredSkills || ['Sales', 'Communication', 'Technology']).slice(0, 3).map((skill: string, skillIndex: number) => (
+                          <span 
+                            key={skillIndex}
+                            className="bg-purple-500/20 text-purple-200 px-2 py-1 rounded-full text-xs font-medium border border-purple-400/30"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                        {((project as any).requiredSkills?.length || 0) > 3 && (
+                          <span className="bg-gray-500/20 text-gray-200 px-2 py-1 rounded-full text-xs font-medium border border-gray-400/30">
+                            +{((project as any).requiredSkills?.length || 0) - 3} more
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Fit Reason */}
-                  <div className="bg-green-500/10 rounded-2xl p-6 mb-6 border border-green-400/20">
-                    <h4 className="text-green-300 font-bold text-lg mb-3 flex items-center">
-                      <span className="text-2xl mr-2">✨</span>
-                      AI Analysis: Portfolio Fit
-                    </h4>
-                    <p className="text-white/90 leading-relaxed">{(project as any).fitReason || `Your skills and experience level make you an excellent candidate for this position. AI analysis indicates strong portfolio alignment.`}</p>
-                  </div>
-                  
-                  <motion.button 
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full bg-gradient-to-r from-white to-gray-100 text-purple-600 px-8 py-4 rounded-2xl font-bold text-lg hover:from-gray-100 hover:to-white transition-all shadow-lg"
-                  >
-                    <span className="flex items-center justify-center">
-                      <span className="mr-2">🚀</span>
-                      Apply Now - {project.match}% Match
-                    </span>
-                  </motion.button>
-                </motion.div>
-              ))}
+                    {/* Why You're Perfect Section - Condensed */}
+                    <div className="bg-blue-500/10 rounded-xl p-3 mb-4 border border-blue-400/20">
+                      <h4 className="text-blue-300 font-bold text-sm mb-2 flex items-center">
+                        <span className="text-lg mr-2">🎯</span>
+                        Why You're Perfect
+                      </h4>
+                      <p className="text-white/90 text-xs leading-relaxed line-clamp-2">
+                        {(project as any).whyYouFit || 'AI analysis shows strong alignment with your portfolio and experience level.'}
+                      </p>
+                    </div>
+                    
+                    <motion.button 
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full bg-gradient-to-r from-white to-gray-100 text-purple-600 px-4 py-3 rounded-xl font-bold text-sm hover:from-gray-100 hover:to-white transition-all shadow-lg"
+                    >
+                      <span className="flex items-center justify-center">
+                        <span className="mr-2">🚀</span>
+                        Apply Now
+                      </span>
+                    </motion.button>
+                  </motion.div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -423,9 +522,9 @@ export default function Portfolio({ userAnswers, portfolioData, onProceedToToken
                 <h2 className="text-3xl font-bold text-white mb-4">
                   ⭐ Skill Assessment
                 </h2>
-                {portfolioData.skillAssessment && (
+                {insights.hasAISkillAssessment && (
                   <div className="text-green-400 text-sm flex items-center justify-center">
-                    🤖 AI-powered skill analysis with market insights
+                    🤖 {insights.isAIGenerated ? 'AI-generated' : 'AI-powered'} skill analysis with market insights
                   </div>
                 )}
               </div>
