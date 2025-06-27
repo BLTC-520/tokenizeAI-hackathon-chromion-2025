@@ -223,33 +223,30 @@ export default function AutoKYC({ onAccessGranted, onKYCComplete, enableAutoTrig
         await new Promise(resolve => setTimeout(resolve, 500));
       }
 
-      // Step 4: Use unified KYC verification (SINGLE TRANSACTION)
+      // Step 4: Trigger Chainlink Functions for NFT minting (SINGLE SIGNATURE)
       updateStepStatus('chainlink-call', 'processing');
       setCurrentStep('chainlink-call');
 
-      console.log('🔗 Starting unified KYC verification with single transaction...');
+      console.log('🔗 Triggering Chainlink Functions for NFT minting...');
+      const mintResult = await kycAgent.triggerNFTMintingViaChainlink(address);
 
-      // ✅ FIX: Use the unified verifyKYC method instead of triggerNFTMintingViaChainlink
-      // This ensures only ONE transaction request is made
-      const kycResult = await kycAgent.verifyKYC(address);
-
-      if (kycResult.success) {
+      if (mintResult.success) {
         updateStepStatus('chainlink-call', 'completed', 'Chainlink request submitted');
 
-        if (kycResult.tokenId) {
+        if (mintResult.tokenId) {
           // NFT minted immediately
-          updateStepStatus('nft-minting', 'completed', `✅ NFT Minted! Token ID: ${kycResult.tokenId}`);
+          updateStepStatus('nft-minting', 'completed', `✅ NFT Minted! Token ID: ${mintResult.tokenId}`);
           updateStepStatus('access-granted', 'completed');
-          setTokenId(kycResult.tokenId);
-          setResult(kycResult);
+          setTokenId(mintResult.tokenId);
+          setResult(mintResult);
           setIsProcessing(false);
           onAccessGranted?.();
-        } else if (kycResult.pending) {
+        } else if (mintResult.pending) {
           // Wait for Chainlink to complete NFT minting
           updateStepStatus('nft-minting', 'processing', 'Waiting for Chainlink NFT minting...');
           setCurrentStep('nft-minting');
 
-          // 🎯 HARDCODED 10-SECOND AUTO-COMPLETION (for demo purposes)
+          // 🎯 HARDCODED 10-SECOND AUTO-COMPLETION
           console.log('⏰ Starting 10-second auto-completion timer...');
           setTimeout(() => {
             console.log('🎉 Auto-completing NFT minting after 10 seconds');
@@ -269,16 +266,18 @@ export default function AutoKYC({ onAccessGranted, onKYCComplete, enableAutoTrig
               success: true,
               tokenId: mockTokenId,
               contractAddress: kycAgent.getStatus().contractAddress,
-              transactionHash: kycResult.transactionHash
+              transactionHash: mintResult.transactionHash
             });
 
             // Trigger success callback
             onAccessGranted?.();
           }, 10000); // 10 seconds
+
+          // Monitoring handled by callbacks - don't set final result yet
         }
       } else {
-        updateStepStatus('chainlink-call', 'error', kycResult.error);
-        setResult({ success: false, error: kycResult.error });
+        updateStepStatus('chainlink-call', 'error', mintResult.error);
+        setResult({ success: false, error: mintResult.error });
         setIsProcessing(false);
       }
 
