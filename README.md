@@ -17,6 +17,12 @@ AI-powered platform that transforms skills into tradeable blockchain tokens usin
 - **DON Integration** - Avalanche Fuji testnet (`fun-avalanche-fuji-1`)
 - **Decentralized Data** - No centralized API dependencies in production
 
+### Chainlink Automation Implementation
+- **TokenExpirationAutomation.sol** - To perform upkeep on deactivating expired tokens every hour (CRON job)
+
+### Chainlink Price Feed 
+- **AVAX/USD** - Implementation Chainlink Price Feed for Marketplace USD to AVAX conversion
+  
 ### Google Gemini AI Agents
 - **Portfolio Agent** - Analyzes user skills and generates market insights
 - **Tokenization Agent** - Creates optimal token strategies based on market data
