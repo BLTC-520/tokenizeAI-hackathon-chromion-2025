@@ -1,4 +1,4 @@
-# Time Tokenizer
+# Time TokenAIzer
 
 AI-powered platform that transforms skills into tradeable blockchain tokens using Chainlink Functions and Google Gemini.
 
