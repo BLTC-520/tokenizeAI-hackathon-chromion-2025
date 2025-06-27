@@ -9,6 +9,7 @@ import { isSupportedChain, getChainDisplayName, getContractAddress } from '../li
 import { getPriceService, FormattedPrice } from '../services/priceService';
 import NotificationCenter from './NotificationCenter';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import ChainlinkUpkeepWidget from './ChainlinkUpkeepWidget';
 
 interface MarketplaceProps {
   onCreateToken?: () => void;
@@ -370,24 +371,29 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
         )}
 
         {/* Action Buttons */}
-        <div className="flex gap-4 mb-8">
-          {onCreateToken && (
-            <button
-              onClick={onCreateToken}
-              className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white px-6 py-3 rounded-xl font-medium transition-all"
-            >
-              🚀 Create New Token
-            </button>
-          )}
-          {onViewDashboard && (
-            <button
-              onClick={onViewDashboard}
-              className="bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-xl font-medium transition-all border border-white/30"
-            >
-              📊 My Dashboard
-            </button>
-          )}
-
+        {/* Action Buttons */}
+        <div className="flex gap-4 mb-8 items-start">
+          <div>
+            {onCreateToken && (
+              <button
+                onClick={onCreateToken}
+                className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white px-6 py-3 rounded-xl font-medium transition-all"
+              >
+                🚀 Create New Token
+              </button>
+            )}
+            {onViewDashboard && (
+              <button
+                onClick={onViewDashboard}
+                className="bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-xl font-medium transition-all border border-white/30 ml-4"
+              >
+                📊 My Dashboard
+              </button>
+            )}
+          </div>
+          <div className="ml-auto">
+            <ChainlinkUpkeepWidget />
+          </div>
         </div>
 
         {/* Filters */}
