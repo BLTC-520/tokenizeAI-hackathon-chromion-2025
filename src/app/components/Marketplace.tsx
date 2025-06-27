@@ -387,33 +387,7 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
               📊 My Dashboard
             </button>
           )}
-          {/* Debug button for development */}
-          {process.env.NODE_ENV === 'development' && (
-            <button
-              onClick={() => {
-                console.log('🔍 Debug Info:', {
-                  isConnected,
-                  address,
-                  chainId,
-                  supportedChain: isSupportedChain(chainId),
-                  contractAddress: getContractAddress(chainId),
-                  totalTokens: tokens.length,
-                  availableTokens: tokens.filter(t => Number(t.availableHours) > 0).length,
-                  tokens: tokens.map(t => ({
-                    id: t.tokenId,
-                    name: t.serviceName,
-                    price: formatEther(t.pricePerHour),
-                    available: t.availableHours.toString(),
-                    creator: t.creator,
-                    isActive: t.isActive
-                  }))
-                });
-              }}
-              className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 px-4 py-2 rounded-lg text-sm font-medium transition-all border border-yellow-500/30"
-            >
-              🐛 Debug
-            </button>
-          )}
+
         </div>
 
         {/* Filters */}
@@ -607,13 +581,12 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
                       initial={{ opacity: 0, y: -20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
-                      className={`mb-4 px-4 py-3 rounded-xl font-medium shadow-lg border ${
-                        modalNotification.type === 'success' 
-                          ? 'bg-green-500/20 text-green-100 border-green-500/50' 
-                          : modalNotification.type === 'error'
+                      className={`mb-4 px-4 py-3 rounded-xl font-medium shadow-lg border ${modalNotification.type === 'success'
+                        ? 'bg-green-500/20 text-green-100 border-green-500/50'
+                        : modalNotification.type === 'error'
                           ? 'bg-red-500/20 text-red-100 border-red-500/50'
                           : 'bg-blue-500/20 text-blue-100 border-blue-500/50'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-lg">
@@ -630,7 +603,7 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
                     </motion.div>
                   )}
                 </AnimatePresence>
-                
+
                 <h2 className="text-2xl font-bold text-white mb-4">{selectedToken.serviceName}</h2>
 
                 <div className="space-y-4 mb-6">

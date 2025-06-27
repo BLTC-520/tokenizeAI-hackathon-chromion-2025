@@ -94,7 +94,7 @@ export default function TokenizationModeSelector({
               <p className="text-gray-600 mb-6">
                 Take full control and customize each token step-by-step with AI-powered recommendations.
               </p>
-              
+
               <div className="space-y-3 text-left mb-6">
                 <div className="flex items-center gap-3">
                   <span className="text-green-600">✓</span>
@@ -146,7 +146,7 @@ export default function TokenizationModeSelector({
               <p className="text-gray-600 mb-6">
                 Tell our AI agent your goal and it will automatically create the perfect token strategy.
               </p>
-              
+
               <div className="space-y-3 text-left mb-6">
                 <div className="flex items-center gap-3">
                   <span className="text-blue-600">🎯</span>
@@ -219,7 +219,7 @@ export default function TokenizationModeSelector({
           >
             Back to Portfolio
           </button>
-          
+
           <button
             onClick={onViewMarketplace}
             className="bg-gray-100 hover:bg-gray-200 text-black px-8 py-3 rounded-lg font-medium transition-all border border-gray-300"

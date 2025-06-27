@@ -6,7 +6,6 @@ import { useAccount, useChainId } from 'wagmi';
 import ImprovedQuestionnaire from './components/ImprovedQuestionnaire';
 import ProcessingState from './components/ProcessingState';
 import Portfolio from './components/Portfolio';
-import StorageDebug from './components/StorageDebug';
 import ChainSwitcher from './components/ChainSwitcher';
 import ScrollableLanding from './components/ScrollableLanding';
 import AutoKYC from './components/AutoKYC';
@@ -386,7 +385,7 @@ export default function Home() {
         )}
 
         {/* Debug Panel - Development Only */}
-        {process.env.NODE_ENV === 'development' && <StorageDebug />}
+
 
         {/* AI Chat Assistant - Available on all states except landing */}
         {currentAppState !== 'landing' && (

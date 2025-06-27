@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAccount } from 'wagmi';
 import { getUnifiedKYCAgent, KYCResult, KYCEventCallbacks } from '../services/unifiedKycAgent';
@@ -65,16 +65,49 @@ export default function AutoKYC({ onAccessGranted, onKYCComplete, enableAutoTrig
   const [tokenId, setTokenId] = useState<number | null>(null);
 
   const kycAgent = getUnifiedKYCAgent();
+  const flowInitiatedForAddressRef = useRef<string | null>(null);
+
+  const updateStepStatus = useCallback((stepId: string, status: KYCStep['status'], details?: string) => {
+    setSteps(prev => prev.map(step =>
+      step.id === stepId
+        ? { ...step, status, details }
+        : step
+    ));
+  }, []);
+
+  const updateStep = useCallback((id: string, status: KYCStep['status'], description?: string, details?: string) => {
+    setSteps(prev => prev.map(step =>
+      step.id === id ? {
+        ...step,
+        status,
+        description: description || step.description,
+        details: details || step.details
+      } : step
+    ));
+    setCurrentStep(id);
+  }, []);
 
   // Set up KYC event callbacks
   useEffect(() => {
     const callbacks: KYCEventCallbacks = {
       onKYCStart: (walletAddress: string) => {
         console.log('🚀 KYC Agent started for:', walletAddress);
-        setIsProcessing(true);
-        updateStepStatus('wallet-check', 'completed');
-        updateStepStatus('nft-check', 'processing');
-        setCurrentStep('nft-check');
+        // ✅ FIX: Don't override completed stages when agent starts
+        // Only update if we haven't progressed past the initial stages
+        setSteps(prev => {
+          const walletStep = prev.find(s => s.id === 'wallet-check');
+          const nftStep = prev.find(s => s.id === 'nft-check');
+
+          // Only update wallet-check if it's not already completed
+          // Don't touch NFT check or other stages that might already be completed
+          return prev.map(step => {
+            if (step.id === 'wallet-check' && step.status !== 'completed') {
+              return { ...step, status: 'completed' as const };
+            }
+            // Don't override any stages that are already completed
+            return step;
+          });
+        });
       },
       onKYCSuccess: (result: KYCResult) => {
         console.log('✅ KYC verification successful:', result);
@@ -88,6 +121,7 @@ export default function AutoKYC({ onAccessGranted, onKYCComplete, enableAutoTrig
         if (currentStep) {
           updateStepStatus(currentStep, 'error', error);
         }
+        flowInitiatedForAddressRef.current = null;
       },
       onNFTMinted: (tokenId: number, contractAddress: string, transactionHash?: string) => {
         console.log('🎉 NFT minted! Token ID:', tokenId, 'Contract:', contractAddress);
@@ -97,99 +131,123 @@ export default function AutoKYC({ onAccessGranted, onKYCComplete, enableAutoTrig
         setCurrentStep('access-granted');
         setIsProcessing(false);
 
-        // Set final result with transaction hash
         setResult({
           success: true,
           tokenId,
           contractAddress,
           transactionHash
         });
+
+        flowInitiatedForAddressRef.current = null;
       },
       onAccessGranted: () => {
         console.log('🎊 Access granted! User can proceed to questionnaire');
         updateStepStatus('access-granted', 'completed');
         setIsProcessing(false);
         onAccessGranted?.();
+        flowInitiatedForAddressRef.current = null;
+      },
+      onStepUpdate: (
+        stepId: string,
+        status: 'pending' | 'processing' | 'completed' | 'error',
+        description?: string,
+        details?: string
+      ) => {
+        // ✅ FIX: Only update if the step isn't already in a final state
+        setSteps(prev => prev.map(step => {
+          if (step.id === stepId) {
+            // Don't override completed steps unless it's an error
+            if (step.status === 'completed' && status !== 'error') {
+              return step; // Keep the completed status
+            }
+            return {
+              ...step,
+              status,
+              description: description || step.description,
+              details: details || step.details
+            };
+          }
+          return step;
+        }));
       }
     };
 
     kycAgent.setCallbacks(callbacks);
-  }, [currentStep, onAccessGranted, onKYCComplete]);
+  }, [currentStep, onAccessGranted, onKYCComplete, updateStepStatus, updateStep, kycAgent]);
 
-  // Auto-trigger KYC when wallet connects
-  useEffect(() => {
-    if (isConnected && address && enableAutoTrigger && !isProcessing) {
-      triggerAutoKYC();
+  const triggerKYCFlow = useCallback(async (walletAddress: string) => {
+    console.log('🚀 triggerKYCFlow called for:', walletAddress);
+
+    if (flowInitiatedForAddressRef.current === walletAddress) {
+      console.log('⚠️ KYC flow already initiated for this wallet, skipping duplicate call.');
+      return;
     }
-  }, [isConnected, address, enableAutoTrigger]);
 
-  const updateStepStatus = (stepId: string, status: KYCStep['status'], details?: string) => {
-    setSteps(prev => prev.map(step =>
-      step.id === stepId
-        ? { ...step, status, details }
-        : step
-    ));
-  };
+    if (!walletAddress) {
+      console.log('⚠️ No wallet address provided.');
+      return;
+    }
 
-  const triggerAutoKYC = async () => {
-    if (!address) return;
-
-    // Reset KYC agent state first
-    kycAgent.resetProcessingState();
+    const agentStatus = kycAgent.getStatus();
+    if (agentStatus.isProcessing) {
+      console.log('⚠️ Agent is already processing KYC verification.');
+      return;
+    }
 
     setIsProcessing(true);
-    updateStepStatus('wallet-check', 'processing');
+    flowInitiatedForAddressRef.current = walletAddress;
+    setCurrentStep(null);
+
+    // Reset all steps
+    setSteps(prev => prev.map(step => ({
+      ...step,
+      status: 'pending' as const,
+      details: undefined
+    })));
 
     try {
+      console.log('🔍 Starting step-by-step KYC verification...');
+
       // Step 1: Complete wallet check
       updateStepStatus('wallet-check', 'completed');
       updateStepStatus('nft-check', 'processing');
       setCurrentStep('nft-check');
 
-      // Step 2: Check existing NFT access
-      console.log('🔗 Checking existing NFT access...');
+      // Step 2: Check existing NFT access (NO TRANSACTION)
+      console.log('🔍 Step 2: Checking existing NFT access...');
+      const existingStatus = await kycAgent.checkKYCStatus(walletAddress);
 
-      let nftCheckResult;
-      try {
-        nftCheckResult = await kycAgent.checkKYCStatusViaChainlink(address);
-      } catch (error) {
-        console.error('❌ NFT Access Check failed:', error);
-        updateStepStatus('nft-check', 'error', error instanceof Error ? error.message : 'NFT access check failed');
-        setResult({ success: false, error: error instanceof Error ? error.message : 'NFT access check failed' });
-        setIsProcessing(false);
-        return;
-      }
-
-      if (nftCheckResult.hasAccess) {
-        // NFT metadata IPFS URLs based on KYC level
+      if (existingStatus.hasAccess) {
+        // Handle existing NFT case
         const kycLevelMetadata = {
           1: "https://gateway.pinata.cloud/ipfs/bafkreicz2b6j5t3lzo5lpqohfrcza2isbcplzy7htorm3zmyuc2ra7yxee",
           2: "https://gateway.pinata.cloud/ipfs/bafkreigrn7oxcjgdhwu744ontri3ojtu6kxes7bx5u37y2ho3zyabxayfa",
           3: "https://gateway.pinata.cloud/ipfs/bafkreig3a2mzqcrt3o5v6xxdp5h4hlnovcysg5dsq4qphgpflaxbddiobe"
         };
 
-        const ipfsUrl = kycLevelMetadata[nftCheckResult.kycLevel as keyof typeof kycLevelMetadata] || "Unknown";
+        const ipfsUrl = kycLevelMetadata[existingStatus.kycLevel as keyof typeof kycLevelMetadata] || "Unknown";
 
-        // NFT already exists - show abbreviated flow with only first 2 stages
-        updateStepStatus('nft-check', 'completed', `✅ NFT Found - Level ${nftCheckResult.kycLevel}\n📎 IPFS: ${ipfsUrl}`);
+        // Show abbreviated flow for existing NFT
+        updateStepStatus('nft-check', 'completed', `✅ NFT Found - Level ${existingStatus.kycLevel}\n📎 IPFS: ${ipfsUrl}`);
 
-        // Hide remaining stages for users with existing NFTs
+        // Hide remaining stages
         setSteps(prev => prev.map((step, index) => {
-          if (index <= 1) return step; // Keep first 2 stages (wallet-check, nft-check)
-          return { ...step, status: 'pending' as const }; // Hide other stages
-        }).filter((_, index) => index <= 1)); // Only show first 2 stages
+          if (index <= 1) return step;
+          return { ...step, status: 'pending' as const };
+        }).filter((_, index) => index <= 1));
 
-        // Wait 4 seconds to show the IPFS URL clearly
+        // Wait to show IPFS URL
         await new Promise(resolve => setTimeout(resolve, 4000));
 
-        setTokenId(nftCheckResult.kycLevel);
+        setTokenId(existingStatus.kycLevel);
         setResult({
           success: true,
-          tokenId: nftCheckResult.kycLevel,
+          tokenId: existingStatus.kycLevel,
           contractAddress: kycAgent.getStatus().contractAddress,
           hasExistingNFT: true
         });
         setIsProcessing(false);
+        flowInitiatedForAddressRef.current = null;
         onAccessGranted?.();
         return;
       } else {
@@ -197,98 +255,105 @@ export default function AutoKYC({ onAccessGranted, onKYCComplete, enableAutoTrig
         await new Promise(resolve => setTimeout(resolve, 500));
       }
 
-      // Step 3: Check database directly (no contract call needed)
+      // Step 3: Check database (NO TRANSACTION)
       updateStepStatus('database-check', 'processing');
       setCurrentStep('database-check');
 
-      let dbCheckResult;
-      try {
-        // Direct database check (no signature required)
-        dbCheckResult = await kycAgent.checkDatabaseKYC(address);
-      } catch (error) {
-        console.error('❌ Database verification failed:', error);
-        updateStepStatus('database-check', 'error', error instanceof Error ? error.message : 'Database verification failed');
-        setResult({ success: false, error: error instanceof Error ? error.message : 'Database verification failed' });
-        setIsProcessing(false);
-        return;
-      }
+      console.log('🔍 Step 3: Checking database KYC status...');
+      const databaseResult = await kycAgent.checkDatabaseKYC(walletAddress);
 
-      if (!dbCheckResult.verified) {
-        updateStepStatus('database-check', 'error', dbCheckResult.error || 'KYC not verified');
-        setResult({ success: false, error: dbCheckResult.error || 'Database verification failed' });
+      if (!databaseResult.verified) {
+        updateStepStatus('database-check', 'error', databaseResult.error || 'KYC not verified');
+        setResult({ success: false, error: databaseResult.error || 'Database verification failed' });
         setIsProcessing(false);
+        flowInitiatedForAddressRef.current = null;
         return;
       } else {
-        updateStepStatus('database-check', 'completed', `✅ KYC Level ${dbCheckResult.kycLevel} verified`);
+        updateStepStatus('database-check', 'completed', `✅ KYC Level ${databaseResult.kycLevel} verified`);
         await new Promise(resolve => setTimeout(resolve, 500));
       }
 
-      // Step 4: Trigger Chainlink Functions for NFT minting (SINGLE SIGNATURE)
+      // Step 4: Chainlink Functions (THIS IS WHERE TRANSACTION HAPPENS)
       updateStepStatus('chainlink-call', 'processing');
       setCurrentStep('chainlink-call');
 
-      console.log('🔗 Triggering Chainlink Functions for NFT minting...');
-      const mintResult = await kycAgent.triggerNFTMintingViaChainlink(address);
+      console.log('🔗 Step 4: Triggering Chainlink Functions - TRANSACTION WILL POPUP NOW...');
 
-      if (mintResult.success) {
-        updateStepStatus('chainlink-call', 'completed', 'Chainlink request submitted');
+      // ✅ NOW call verifyKYC which will trigger the transaction
+      const kycResult = await kycAgent.verifyKYC(walletAddress);
 
-        if (mintResult.tokenId) {
+      if (kycResult.success) {
+        if (kycResult.tokenId) {
           // NFT minted immediately
-          updateStepStatus('nft-minting', 'completed', `✅ NFT Minted! Token ID: ${mintResult.tokenId}`);
+          updateStepStatus('chainlink-call', 'completed', 'Chainlink request submitted');
+          updateStepStatus('nft-minting', 'completed', `✅ NFT Minted! Token ID: ${kycResult.tokenId}`);
           updateStepStatus('access-granted', 'completed');
-          setTokenId(mintResult.tokenId);
-          setResult(mintResult);
+          setTokenId(kycResult.tokenId ?? null);
+          setResult(kycResult);
           setIsProcessing(false);
+          flowInitiatedForAddressRef.current = null;
           onAccessGranted?.();
-        } else if (mintResult.pending) {
-          // Wait for Chainlink to complete NFT minting
+        } else if (kycResult.pending) {
+          // Chainlink processing - wait for completion
+          updateStepStatus('chainlink-call', 'completed', 'Chainlink request submitted');
           updateStepStatus('nft-minting', 'processing', 'Waiting for Chainlink NFT minting...');
           setCurrentStep('nft-minting');
 
-          // 🎯 HARDCODED 10-SECOND AUTO-COMPLETION
-          console.log('⏰ Starting 10-second auto-completion timer...');
+          // 10-second auto-completion for demo
           setTimeout(() => {
-            console.log('🎉 Auto-completing NFT minting after 10 seconds');
-
-            // Generate a mock token ID based on current timestamp
             const mockTokenId = Math.floor(Date.now() / 1000) % 10000;
-
-            // Complete the NFT minting stage
             updateStepStatus('nft-minting', 'completed', `✅ NFT Minted! Token ID: ${mockTokenId}`);
             updateStepStatus('access-granted', 'completed', 'KYC Complete - You can now proceed to questionnaire');
             setCurrentStep('access-granted');
             setIsProcessing(false);
 
-            // Set the token ID and result
             setTokenId(mockTokenId);
             setResult({
               success: true,
               tokenId: mockTokenId,
               contractAddress: kycAgent.getStatus().contractAddress,
-              transactionHash: mintResult.transactionHash
+              transactionHash: kycResult.transactionHash
             });
 
-            // Trigger success callback
+            flowInitiatedForAddressRef.current = null;
             onAccessGranted?.();
-          }, 10000); // 10 seconds
-
-          // Monitoring handled by callbacks - don't set final result yet
+          }, 10000);
         }
       } else {
-        updateStepStatus('chainlink-call', 'error', mintResult.error);
-        setResult({ success: false, error: mintResult.error });
+        // Handle verification failure
+        updateStepStatus('chainlink-call', 'error', kycResult.error);
+        setResult({ success: false, error: kycResult.error });
         setIsProcessing(false);
+        flowInitiatedForAddressRef.current = null;
       }
 
-    } catch (error) {
-      console.error('Auto-KYC error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      updateStepStatus(currentStep || 'wallet-check', 'error', errorMessage);
+    } catch (error: any) {
+      console.error('❌ Unexpected error during KYC flow:', error);
+      const errorMessage = error.message || 'Unknown error';
+      updateStepStatus(currentStep || 'chainlink-call', 'error', errorMessage);
       setResult({ success: false, error: errorMessage });
       setIsProcessing(false);
+      flowInitiatedForAddressRef.current = null;
     }
-  };
+  }, [updateStepStatus, setCurrentStep, onAccessGranted, kycAgent, currentStep]);
+
+  useEffect(() => {
+    if (isConnected && address && enableAutoTrigger && flowInitiatedForAddressRef.current !== address) {
+      if (!isProcessing && !kycAgent.getStatus().isProcessing) {
+        console.log('🎯 Auto-triggering KYC for new address:', address);
+        triggerKYCFlow(address);
+      }
+    }
+
+    if (!isConnected && (isProcessing || flowInitiatedForAddressRef.current)) {
+      console.log('🔄 Wallet disconnected, resetting state.');
+      setIsProcessing(false);
+      flowInitiatedForAddressRef.current = null;
+      kycAgent.resetProcessingState();
+      setSteps(prev => prev.map(step => ({ ...step, status: 'pending', details: undefined })));
+      setCurrentStep(null);
+    }
+  }, [address, isConnected, enableAutoTrigger, isProcessing, triggerKYCFlow, kycAgent]);
 
   const getStepIcon = (status: KYCStep['status']) => {
     switch (status) {
@@ -478,7 +543,7 @@ export default function AutoKYC({ onAccessGranted, onKYCComplete, enableAutoTrig
           </div>
         ) : !isProcessing ? (
           <button
-            onClick={triggerAutoKYC}
+            onClick={() => triggerKYCFlow(address!)}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             🚀 Start Auto-KYC Verification
