@@ -9,6 +9,7 @@ import { isSupportedChain, getChainDisplayName } from '../lib/wagmi';
 import { getAlertAgent } from '../services/alertAgent';
 import { validateTokenCreation } from '../utils/validation';
 import { useErrorHandler } from './ErrorBoundary';
+import { FEATURE_FLAGS } from '../shared/constants';
 
 interface TokenCreationProps {
   suggestion: TokenSuggestion;
@@ -28,6 +29,8 @@ export default function TokenCreation({ suggestion, onSuccess, onCancel }: Token
     validityDays: suggestion.suggestedValidityDays
   });
   const [gasEstimate, setGasEstimate] = useState<string>('');
+  const [escrowEnabled, setEscrowEnabled] = useState(true); // Default to enabled for demo
+  const [escrowTimeoutDays, setEscrowTimeoutDays] = useState(FEATURE_FLAGS.ESCROW_TIMEOUT_DAYS);
   
   const contractService = getContractService();
   const alertAgent = getAlertAgent();
@@ -317,6 +320,67 @@ export default function TokenCreation({ suggestion, onSuccess, onCancel }: Token
                         className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-white/50"
                       />
                     </div>
+
+                    {/* Escrow Protection (Feature Flag Demo) */}
+                    {FEATURE_FLAGS.ESCROW_ENABLED && (
+                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <label className="text-white/90 font-medium flex items-center gap-2">
+                            🔒 Escrow Protection
+                            <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full text-xs font-bold">
+                              NEW
+                            </span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setEscrowEnabled(!escrowEnabled)}
+                            className={`relative inline-flex items-center w-12 h-6 rounded-full transition-colors ${
+                              escrowEnabled ? 'bg-blue-500' : 'bg-white/20'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block w-4 h-4 bg-white rounded-full transition-transform ${
+                                escrowEnabled ? 'translate-x-7' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                        {escrowEnabled && (
+                          <div className="space-y-3">
+                            <p className="text-white/70 text-sm">
+                              💰 Buyer payments are held securely until service completion
+                            </p>
+                            <div>
+                              <label className="block text-white/80 text-sm mb-1">Escrow Timeout (Days)</label>
+                              <input
+                                type="number"
+                                value={escrowTimeoutDays}
+                                onChange={(e) => setEscrowTimeoutDays(parseInt(e.target.value) || 7)}
+                                min="1"
+                                max="30"
+                                className="w-24 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-400"
+                              />
+                              <p className="text-white/50 text-xs mt-1">
+                                Payment auto-releases after {escrowTimeoutDays} days if no disputes
+                              </p>
+                            </div>
+                            <div className="bg-white/5 rounded-lg p-3">
+                              <h4 className="text-white/80 font-medium text-sm mb-2">🛡️ How Escrow Works:</h4>
+                              <div className="space-y-1 text-xs text-white/60">
+                                <div>1. Buyer payment held in smart contract</div>
+                                <div>2. Seller delivers the promised service</div>
+                                <div>3. Buyer confirms completion or auto-release</div>
+                                <div>4. Payment transferred to seller</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-white/50">
+                              <span>💸</span>
+                              <span>Platform fee: {FEATURE_FLAGS.ESCROW_FEE_PERCENTAGE}% for escrow protection</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -378,6 +442,36 @@ export default function TokenCreation({ suggestion, onSuccess, onCancel }: Token
                         <div className="text-white font-bold capitalize">{suggestion.marketDemand}</div>
                       </div>
                     </div>
+
+                    {/* Escrow Protection Preview */}
+                    {FEATURE_FLAGS.ESCROW_ENABLED && escrowEnabled && (
+                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-xl">🔒</span>
+                          <h4 className="text-white font-semibold">Escrow Protection Enabled</h4>
+                          <span className="bg-green-500/20 text-green-300 px-2 py-1 rounded-full text-xs font-bold">
+                            ✓ SECURED
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-white/60">Protection Period:</span>
+                            <div className="text-white font-medium">{escrowTimeoutDays} days</div>
+                          </div>
+                          <div>
+                            <span className="text-white/60">Platform Fee:</span>
+                            <div className="text-white font-medium">{FEATURE_FLAGS.ESCROW_FEE_PERCENTAGE}%</div>
+                          </div>
+                        </div>
+                        <div className="mt-3 p-3 bg-white/5 rounded-lg">
+                          <p className="text-white/70 text-xs">
+                            💡 <strong>Buyer Advantage:</strong> Payments held safely until service completion.
+                            <br />
+                            🚀 <strong>Seller Advantage:</strong> Higher trust = more sales!
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
