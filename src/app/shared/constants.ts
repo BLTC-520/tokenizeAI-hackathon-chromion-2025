@@ -185,3 +185,11 @@ export const SUCCESS_MESSAGES = {
 	REAL_DATA_LOADED: 'Real market data loaded successfully',
 	CONFIG_VERIFIED: 'Configuration verified successfully'
 } as const;
+
+// ===== FEATURE FLAGS =====
+export const FEATURE_FLAGS = {
+	ESCROW_ENABLED: true, // Default to true for demo
+	ESCROW_TIMEOUT_DAYS: 7, // Default escrow timeout
+	ESCROW_FEE_PERCENTAGE: 2.5, // 2.5% platform fee for escrow services
+	DISPUTE_RESOLUTION_ENABLED: true // Enable dispute resolution system
+} as const;

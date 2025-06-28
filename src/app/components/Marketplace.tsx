@@ -10,6 +10,7 @@ import { getPriceService, FormattedPrice } from '../services/priceService';
 import NotificationCenter from './NotificationCenter';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import ChainlinkUpkeepWidget from './ChainlinkUpkeepWidget';
+import { FEATURE_FLAGS } from '../shared/constants';
 
 interface MarketplaceProps {
   onCreateToken?: () => void;
@@ -31,6 +32,8 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
   const [modalNotification, setModalNotification] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
   const [isModalClosing, setIsModalClosing] = useState(false);
   const modalClosingRef = useRef(false);
+  const [useEscrowProtection, setUseEscrowProtection] = useState(true); // Default to enabled for demo
+  const [escrowTimeoutDays, setEscrowTimeoutDays] = useState(FEATURE_FLAGS.ESCROW_TIMEOUT_DAYS);
 
   const contractService = getContractService();
   const priceService = getPriceService();
@@ -577,7 +580,7 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 max-w-md w-full border border-white/20"
+                className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto border border-white/20"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Modal Notification */}
@@ -610,9 +613,9 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
                   )}
                 </AnimatePresence>
 
-                <h2 className="text-2xl font-bold text-white mb-4">{selectedToken.serviceName}</h2>
+                <h2 className="text-xl font-bold text-white mb-3">{selectedToken.serviceName}</h2>
 
-                <div className="space-y-4 mb-6">
+                <div className="space-y-3 mb-4">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-white/60">Creator:</span>
@@ -669,6 +672,107 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
                         </div>
                       </div>
                     )}
+
+                  {/* Escrow Protection Options */}
+                  {FEATURE_FLAGS.ESCROW_ENABLED && selectedToken.creator.toLowerCase() !== address?.toLowerCase() &&
+                    !isExpired(selectedToken.validUntil) && Number(selectedToken.availableHours) > 0 && (
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">🔒</span>
+                          <h4 className="text-white font-semibold">Escrow Protection</h4>
+                          <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full text-xs font-bold">
+                            RECOMMENDED
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setUseEscrowProtection(!useEscrowProtection)}
+                          className={`relative inline-flex items-center w-12 h-6 rounded-full transition-colors ${
+                            useEscrowProtection ? 'bg-blue-500' : 'bg-white/20'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block w-4 h-4 bg-white rounded-full transition-transform ${
+                              useEscrowProtection ? 'translate-x-7' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                      
+                      {useEscrowProtection ? (
+                        <div className="space-y-2">
+                          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-green-400">✓</span>
+                              <span className="text-white font-medium text-sm">Payment Protection Enabled</span>
+                            </div>
+                            <div className="space-y-1 text-xs text-white/70">
+                              <div>• Payment held safely in smart contract</div>
+                              <div>• Released after service completion</div>
+                              <div>• Auto-release after {escrowTimeoutDays} days</div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-white/60">Protection Period:</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                value={escrowTimeoutDays}
+                                onChange={(e) => setEscrowTimeoutDays(parseInt(e.target.value) || 7)}
+                                min="3"
+                                max="30"
+                                className="w-16 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-sm focus:outline-none focus:border-blue-400"
+                              />
+                              <span className="text-white/60">days</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-white/60">Escrow Fee:</span>
+                            <span className="text-white font-medium">{FEATURE_FLAGS.ESCROW_FEE_PERCENTAGE}% of total</span>
+                          </div>
+                          
+                          {purchaseCost && (
+                            <div className="bg-white/5 rounded-lg p-2">
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="text-white/60">Service:</span>
+                                <span className="text-white">{purchaseCost.crypto}</span>
+                              </div>
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="text-white/60">Escrow Fee:</span>
+                                <span className="text-white/80">
+                                  +{(purchaseCost.cryptoAmount * FEATURE_FLAGS.ESCROW_FEE_PERCENTAGE / 100).toFixed(4)} 
+                                  {purchaseCost.crypto.split(' ')[1]}
+                                </span>
+                              </div>
+                              <div className="border-t border-white/10 pt-1 mt-1">
+                                <div className="flex justify-between font-semibold text-sm">
+                                  <span className="text-white">Total:</span>
+                                  <span className="text-green-400">
+                                    {(purchaseCost.cryptoAmount * (1 + FEATURE_FLAGS.ESCROW_FEE_PERCENTAGE / 100)).toFixed(4)} 
+                                    {purchaseCost.crypto.split(' ')[1]}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-red-400">⚠️</span>
+                            <span className="text-white font-medium text-sm">No Payment Protection</span>
+                          </div>
+                          <div className="space-y-1 text-xs text-white/70">
+                            <div>• Direct payment to seller (higher risk)</div>
+                            <div>• No dispute resolution available</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-4">
@@ -700,7 +804,12 @@ export default function Marketplace({ onCreateToken, onViewDashboard }: Marketpl
                           </div>
                         ) : (
                           <div className="flex items-center justify-center gap-2">
-                            🛒 Purchase {purchaseHours}h for {purchaseCost?.crypto || 'Calculating...'}
+                            {useEscrowProtection && FEATURE_FLAGS.ESCROW_ENABLED ? '🔒' : '🛒'} 
+                            {useEscrowProtection && FEATURE_FLAGS.ESCROW_ENABLED ? 'Secure Purchase' : 'Purchase'} {purchaseHours}h
+                            {useEscrowProtection && FEATURE_FLAGS.ESCROW_ENABLED && purchaseCost
+                              ? ` for ${(purchaseCost.cryptoAmount * (1 + FEATURE_FLAGS.ESCROW_FEE_PERCENTAGE / 100)).toFixed(4)} ${purchaseCost.crypto.split(' ')[1]}`
+                              : ` for ${purchaseCost?.crypto || 'Calculating...'}`
+                            }
                           </div>
                         )}
                       </button>
